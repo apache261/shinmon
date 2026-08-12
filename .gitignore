@@ -1,0 +1,12 @@
+# Local runtime configuration contains development credentials.
+.env
+.env.test
+dashboard.env
+deploy.env
+deploy-dev.env
+deploy-prod.env
+
+# Local build and test output.
+bin/
+coverage.out
+.github/*

@@ -1,0 +1,1 @@
+export function errorHTML(message = 'Something went wrong.') { const node = document.createElement('div'); node.className = 'error-state'; const paragraph = document.createElement('p'); paragraph.textContent = message; node.append(paragraph); return node; }

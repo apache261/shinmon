@@ -1,0 +1,12 @@
+services:
+  dashboard:
+    environment:
+      DASHBOARD_API_TARGET: ${DASHBOARD_STACK_API_TARGET:-http://gateway-admin:4041}
+    networks:
+      - default
+      - shinmon-control
+
+networks:
+  shinmon-control:
+    external: true
+    name: ${DASHBOARD_CONTROL_NETWORK:-shinmon-stack_control}

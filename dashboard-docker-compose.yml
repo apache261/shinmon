@@ -1,0 +1,27 @@
+name: shinmon-dashboard
+
+services:
+  dashboard:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    environment:
+      DASHBOARD_API_TARGET: ${DASHBOARD_API_TARGET:-http://host.docker.internal:4041}
+      DASHBOARD_LISTEN: ${DASHBOARD_LISTEN:-4042}
+      DASHBOARD_TLS_CONFIG: ${DASHBOARD_TLS_CONFIG:-}
+      DASHBOARD_HEALTH_SCHEME: ${DASHBOARD_HEALTH_SCHEME:-http}
+      DASHBOARD_PROXY_TLS_CONFIG: ${DASHBOARD_PROXY_TLS_CONFIG:-}
+    ports:
+      - "${DASHBOARD_PORT:-4042}:4042"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./web/admin:/usr/share/nginx/html:ro
+      - ./deploy/dashboard/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${DASHBOARD_TLS_DIR:-./deploy/tls}:/etc/shinmon/tls:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null ${DASHBOARD_HEALTH_SCHEME:-http}://127.0.0.1:4042/dashboard-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true

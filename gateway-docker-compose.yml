@@ -1,0 +1,221 @@
+name: shinmon-stack
+
+x-common-environment: &common-environment
+  GATEWAY_ENVIRONMENT: ${GATEWAY_ENVIRONMENT:-development}
+  GATEWAY_LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-info}
+  GATEWAY_METRICS_BEARER_TOKEN: ${GATEWAY_METRICS_BEARER_TOKEN:?GATEWAY_METRICS_BEARER_TOKEN is required}
+  GATEWAY_SHUTDOWN_TIMEOUT: ${GATEWAY_SHUTDOWN_TIMEOUT:-10s}
+  GATEWAY_API_KEY_PEPPER: ${GATEWAY_API_KEY_PEPPER:?GATEWAY_API_KEY_PEPPER is required}
+  GATEWAY_DATABASE_URL: ${GATEWAY_DATABASE_URL:-postgres://${POSTGRES_USER:-shinmon}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@${POSTGRES_HOST:-postgres}:${POSTGRES_SERVICE_PORT:-5432}/${POSTGRES_DB:-shinmon}?sslmode=disable}
+  GATEWAY_DATABASE_MIN_CONNECTIONS: ${GATEWAY_DATABASE_MIN_CONNECTIONS:-1}
+  GATEWAY_DATABASE_MAX_CONNECTIONS: ${GATEWAY_DATABASE_MAX_CONNECTIONS:-10}
+  GATEWAY_DATABASE_CONNECT_TIMEOUT: ${GATEWAY_DATABASE_CONNECT_TIMEOUT:-10s}
+  GATEWAY_UPSTREAM_ALLOWED_CIDRS: ${GATEWAY_UPSTREAM_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+  GATEWAY_REDIS_URL: ${GATEWAY_REDIS_URL:-redis://${REDIS_HOST:-redis}:${REDIS_SERVICE_PORT:-6379}/0}
+
+x-gateway-environment: &gateway-environment
+  <<: *common-environment
+  GATEWAY_HTTP_ADDR: :4040
+  GATEWAY_TLS_CERT_FILE: ${GATEWAY_DATA_TLS_CERT_FILE:-}
+  GATEWAY_TLS_KEY_FILE: ${GATEWAY_DATA_TLS_KEY_FILE:-}
+  GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-10.254.240.10/32}
+  GATEWAY_CONFIG_POLL_INTERVAL: ${GATEWAY_CONFIG_POLL_INTERVAL:-2s}
+  GATEWAY_UPSTREAM_HEALTH_INTERVAL: ${GATEWAY_UPSTREAM_HEALTH_INTERVAL:-10s}
+  GATEWAY_UPSTREAM_HEALTH_TIMEOUT: ${GATEWAY_UPSTREAM_HEALTH_TIMEOUT:-2s}
+  GATEWAY_UPSTREAM_TLS_CA_FILE: ${GATEWAY_UPSTREAM_TLS_CA_FILE:-}
+
+x-go-security: &go-security
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=16m,mode=1777
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shinmon}
+      POSTGRES_USER: ${POSTGRES_USER:-shinmon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_PORT:-4043}:5432"
+    volumes:
+      - shinmon_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shinmon} -d ${POSTGRES_DB:-shinmon}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks:
+      control:
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_BIND_ADDR:-127.0.0.1}:${REDIS_PORT:-4044}:6379"
+    volumes:
+      - shinmon_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      control:
+
+  gateway-admin:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.gateway-admin
+    image: shinmon/gateway-admin:${SHINMON_IMAGE_TAG:-development}
+    restart: unless-stopped
+    environment:
+      <<: *common-environment
+      GATEWAY_ADMIN_HTTP_ADDR: :4041
+      GATEWAY_ADMIN_BEARER_TOKEN: ${GATEWAY_ADMIN_BEARER_TOKEN:?GATEWAY_ADMIN_BEARER_TOKEN is required}
+      GATEWAY_CONFIGURATION_APPROVALS_REQUIRED: ${GATEWAY_CONFIGURATION_APPROVALS_REQUIRED:-0}
+      GATEWAY_TLS_CERT_FILE: ${GATEWAY_ADMIN_TLS_CERT_FILE:-}
+      GATEWAY_TLS_KEY_FILE: ${GATEWAY_ADMIN_TLS_KEY_FILE:-}
+    ports:
+      - "${GATEWAY_ADMIN_BIND_ADDR:-127.0.0.1}:${GATEWAY_ADMIN_PORT:-4041}:4041"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null ${GATEWAY_ADMIN_HEALTH_SCHEME:-http}://127.0.0.1:4041/health/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+    <<: *go-security
+    volumes:
+      - ${GATEWAY_TLS_DIR:-./deploy/tls}:/etc/shinmon/tls:ro
+    networks:
+      control:
+
+  gateway-1:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.gateway
+    image: shinmon/gateway:${SHINMON_IMAGE_TAG:-development}
+    restart: unless-stopped
+    environment:
+      <<: *gateway-environment
+      GATEWAY_INSTANCE_ID: shinmon-gateway-1
+      GATEWAY_ADVERTISE_ADDR: gateway-1:4040
+    depends_on:
+      gateway-admin:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4040/health/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+    <<: *go-security
+    volumes:
+      - ${GATEWAY_TLS_DIR:-./deploy/tls}:/etc/shinmon/tls:ro
+    networks:
+      edge:
+        ipv4_address: ${GATEWAY_1_EDGE_IP:-10.254.240.21}
+      control:
+
+  gateway-2:
+    image: shinmon/gateway:${SHINMON_IMAGE_TAG:-development}
+    restart: unless-stopped
+    environment:
+      <<: *gateway-environment
+      GATEWAY_INSTANCE_ID: shinmon-gateway-2
+      GATEWAY_ADVERTISE_ADDR: gateway-2:4040
+    depends_on:
+      gateway-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4040/health/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+    <<: *go-security
+    volumes:
+      - ${GATEWAY_TLS_DIR:-./deploy/tls}:/etc/shinmon/tls:ro
+    networks:
+      edge:
+        ipv4_address: ${GATEWAY_2_EDGE_IP:-10.254.240.22}
+      control:
+
+  haproxy:
+    image: haproxy:3.2.21-alpine
+    restart: unless-stopped
+    user: "99:99"
+    ports:
+      - "${GATEWAY_PORT_MIN:-4100}-${GATEWAY_PORT_MAX:-4199}:${GATEWAY_PORT_MIN:-4100}-${GATEWAY_PORT_MAX:-4199}"
+    volumes:
+      - ${HAPROXY_CONFIG_PATH:-./deploy/haproxy/haproxy.cfg}:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ${GATEWAY_TLS_DIR:-./deploy/tls}:/etc/shinmon/tls:ro
+    depends_on:
+      gateway-1:
+        condition: service_healthy
+      gateway-2:
+        condition: service_healthy
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      edge:
+        ipv4_address: ${HAPROXY_EDGE_IP:-10.254.240.10}
+
+  smoke-upstream-a:
+    image: nginx:1.28-alpine
+    profiles: ["smoke"]
+    ports:
+      - "127.0.0.1:4400:80"
+    volumes:
+      - ./deploy/smoke/upstream-a:/usr/share/nginx/html:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m
+      - /var/run:size=1m
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      control:
+        ipv4_address: ${SMOKE_UPSTREAM_A_CONTROL_IP:-10.254.241.50}
+
+  smoke-upstream-b:
+    image: nginx:1.28-alpine
+    profiles: ["smoke"]
+    volumes:
+      - ./deploy/smoke/upstream-b:/usr/share/nginx/html:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m
+      - /var/run:size=1m
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      control:
+        ipv4_address: ${SMOKE_UPSTREAM_B_CONTROL_IP:-10.254.241.51}
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: ${SHINMON_EDGE_SUBNET:-10.254.240.0/24}
+  control:
+    ipam:
+      config:
+        - subnet: ${SHINMON_CONTROL_SUBNET:-10.254.241.0/24}
+
+volumes:
+  shinmon_postgres_data:
+  shinmon_redis_data:

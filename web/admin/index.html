@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Shinmon API Management Platform</title>
+  <link rel="stylesheet" href="./vendor/w2ui/w2ui.min.css?v=20260730">
+  <link rel="stylesheet" href="./css/app.css?v=20260811.1">
+  <link rel="stylesheet" href="./css/layout.css?v=20260811.1">
+  <link rel="stylesheet" href="./css/components.css?v=20260811.1">
+  <link rel="stylesheet" href="./css/themes.css?v=20260730.8">
+  <script src="./vendor/chart.js/chart.umd.min.js?v=20260730" defer></script>
+  <script type="module" src="./js/app.js?v=20260811.1"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <main id="app" aria-live="polite"></main>
+  <section id="login-screen" class="login-screen" aria-labelledby="login-title">
+    <form id="login-form" class="login-card">
+      <div class="brand-mark" aria-hidden="true">S</div>
+      <p class="eyebrow">Shinmon</p>
+      <h1 id="login-title">API Management Platform</h1>
+      <p class="tagline">The secure gateway to every service.</p>
+      <label for="admin-actor">Administrator identity</label>
+      <input id="admin-actor" name="actor" autocomplete="username" maxlength="128" value="local-admin" required>
+      <label for="admin-token">Bootstrap bearer token</label>
+      <input id="admin-token" name="token" type="password" autocomplete="current-password" minlength="32" required>
+      <button type="submit" class="primary-button">Open dashboard</button>
+      <p id="login-error" class="form-error" role="alert"></p>
+      <p class="security-note">Credentials stay in this browser tab's memory and are cleared on logout or refresh.</p>
+    </form>
+  </section>
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  <div id="request-loader" class="request-loader" role="status" aria-live="polite" aria-label="Loading" hidden>
+    <div class="request-loader-card"><div class="spinner" aria-hidden="true"></div><span>Loading…</span></div>
+  </div>
+</body>
+</html>

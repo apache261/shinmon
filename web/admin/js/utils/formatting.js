@@ -1,0 +1,5 @@
+export function formatDate(value) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.valueOf()) ? '—' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date); }
+export function formatBytes(value) { const bytes = Number(value); if (!Number.isFinite(bytes)) return '—'; if (bytes < 1024) return `${bytes} B`; if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`; return `${(bytes / 1024 ** 2).toFixed(1)} MiB`; }
+export function statusHTML(status) { const safe = String(status || 'unknown').replace(/[^a-z0-9_-]/gi, ''); return `<span class="status ${safe}">${safe}</span>`; }
+export function escapeHTML(value) { return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
+export function records(items = []) { return items.map((item, index) => ({ recid: item.id ?? item.listenerId ?? item.configurationVersion ?? item.listenPort ?? index + 1, ...item })); }

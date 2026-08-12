@@ -1,0 +1,41 @@
+name: shinmon
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shinmon}
+      POSTGRES_USER: ${POSTGRES_USER:-shinmon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shinmon_dev_only}
+    ports:
+      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_PORT:-4043}:5432"
+    volumes:
+      - shinmon_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shinmon} -d ${POSTGRES_DB:-shinmon}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_BIND_ADDR:-127.0.0.1}:${REDIS_PORT:-4044}:6379"
+    volumes:
+      - shinmon_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  shinmon_postgres_data:
+  shinmon_redis_data:

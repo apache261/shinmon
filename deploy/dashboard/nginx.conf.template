@@ -1,0 +1,57 @@
+server {
+    listen ${DASHBOARD_LISTEN};
+    ${DASHBOARD_TLS_CONFIG}
+    server_name _;
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" always;
+
+    location = /dashboard-health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"live","service":"shinmon-dashboard"}';
+    }
+
+    location /admin/v1/ {
+        proxy_pass ${DASHBOARD_API_TARGET};
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Admin-Actor $http_x_admin_actor;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_intercept_errors off;
+        ${DASHBOARD_PROXY_TLS_CONFIG}
+    }
+
+    location ~* ^/vendor/.*\.(css|js)$ {
+        expires -1;
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    location ~* ^/(js|css)/.*\.(js|css)$ {
+        expires -1;
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-store";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

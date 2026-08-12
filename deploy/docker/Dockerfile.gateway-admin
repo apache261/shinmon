@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.7
+FROM golang:1.26.5-alpine3.24 AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,id=shinmon-go-mod,target=/go/pkg/mod \
+    go mod download
+COPY cmd ./cmd
+COPY internal ./internal
+RUN --mount=type=cache,id=shinmon-go-mod,target=/go/pkg/mod \
+    --mount=type=cache,id=shinmon-go-build,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/gateway-admin ./cmd/gateway-admin
+
+FROM alpine:3.24.1
+RUN apk add --no-cache ca-certificates \
+    && addgroup -g 65532 -S shinmon \
+    && adduser -u 65532 -S -D -H -G shinmon shinmon
+COPY --from=build --chown=65532:65532 /out/gateway-admin /usr/local/bin/gateway-admin
+USER 65532:65532
+EXPOSE 4041
+ENTRYPOINT ["/usr/local/bin/gateway-admin"]

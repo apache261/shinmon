@@ -1,0 +1,1 @@
+export function notify(message, type = 'info', timeout = 3500) { const region = document.querySelector('#toast-region'); const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.setAttribute('role', type === 'error' ? 'alert' : 'status'); toast.textContent = message; region.append(toast); setTimeout(() => toast.remove(), timeout); }

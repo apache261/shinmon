@@ -1,0 +1,9 @@
+services:
+  dashboard:
+    networks:
+      - gateway-control
+
+networks:
+  gateway-control:
+    external: true
+    name: shinmon-stack_control
