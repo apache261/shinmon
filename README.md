@@ -195,14 +195,16 @@ security checks when you want to dig further.
 
 ## Why I built it
 
+Development of Shinmon began as a private project local git in December 2024.
+
 I am a software developer who became annoyed by the number of APIs I had to
 track across different addresses, ports, credentials, permissions, health
 checks, and deployment notes. Shinmon grew from wanting those boundaries and
 the publishing workflow in one place.
 
 I built much of it during spare time while travelling, waiting in airports,
-staying in hotels, and sometimes waiting for my girlfriend to finish her
-makeup. It gave me a practical way to explore Go beyond tutorials.
+staying in hotels, and during the occasional wait while my girlfriend was
+getting ready. It gave me a practical way to explore Go beyond tutorials.
 
 The name **Shinmon** comes from the Japanese word **神門** (*shinmon*), which
 refers to a gate at a Shinto shrine. I found it while googling names, and the
