@@ -1,0 +1,66 @@
+name: shinmon-${SHINMON_NODE_NAME}
+
+x-security: &security
+  restart: unless-stopped
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  group_add:
+    - ${SHINMON_SECRET_GID}
+  tmpfs:
+    - /tmp:size=16m,mode=1777
+
+services:
+  edge:
+    profiles: [edge]
+    image: haproxy:3.2.21-alpine
+    user: "99:99"
+    network_mode: host
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./tls:/etc/shinmon/tls:ro
+    <<: *security
+
+  gateway:
+    profiles: [gateway]
+    image: ${SHINMON_REGISTRY:-shinmon}/gateway:${SHINMON_IMAGE_TAG}
+    network_mode: host
+    env_file: node.env
+    volumes:
+      - ./tls:/etc/shinmon/tls:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null ${SHINMON_TRANSPORT_MODE:-http}://127.0.0.1:4040/health/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+    <<: *security
+
+  management:
+    profiles: [management]
+    image: ${SHINMON_REGISTRY:-shinmon}/gateway-admin:${SHINMON_IMAGE_TAG}
+    network_mode: host
+    env_file: node.env
+    volumes:
+      - ./tls:/etc/shinmon/tls:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null ${SHINMON_TRANSPORT_MODE:-http}://127.0.0.1:4041/health/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+    <<: *security
+
+  dashboard:
+    profiles: [dashboard]
+    image: ${SHINMON_REGISTRY:-shinmon}/dashboard:${SHINMON_IMAGE_TAG}
+    network_mode: host
+    env_file: node.env
+    volumes:
+      - ./tls:/etc/shinmon/tls:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null ${SHINMON_TRANSPORT_MODE:-http}://127.0.0.1:4042/dashboard-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    <<: *security

@@ -49,6 +49,7 @@ type Config struct {
 	DatabaseTimeout                time.Duration
 	UpstreamCIDRs                  []netip.Prefix
 	ConfigPollInterval             time.Duration
+	ConfigPollJitter               time.Duration
 	HealthInterval                 time.Duration
 	HealthTimeout                  time.Duration
 	GatewayInstanceID              string
@@ -146,6 +147,13 @@ func load(role Role, lookup lookupFunc) (Config, error) {
 		if durationErr != nil {
 			return Config{}, durationErr
 		}
+		config.ConfigPollJitter, durationErr = nonNegativeDuration(lookup, "GATEWAY_CONFIG_POLL_JITTER", "500ms")
+		if durationErr != nil {
+			return Config{}, durationErr
+		}
+		if config.ConfigPollJitter >= config.ConfigPollInterval {
+			return Config{}, errors.New("GATEWAY_CONFIG_POLL_JITTER must be shorter than GATEWAY_CONFIG_POLL_INTERVAL")
+		}
 		config.HealthInterval, durationErr = positiveDuration(lookup, "GATEWAY_UPSTREAM_HEALTH_INTERVAL", "10s")
 		if durationErr != nil {
 			return Config{}, durationErr
@@ -234,6 +242,14 @@ func positiveDuration(lookup lookupFunc, name, fallback string) (time.Duration, 
 	parsed, err := time.ParseDuration(strings.TrimSpace(value(lookup, name, fallback)))
 	if err != nil || parsed <= 0 {
 		return 0, fmt.Errorf("%s must be a positive duration", name)
+	}
+	return parsed, nil
+}
+
+func nonNegativeDuration(lookup lookupFunc, name, fallback string) (time.Duration, error) {
+	parsed, err := time.ParseDuration(strings.TrimSpace(value(lookup, name, fallback)))
+	if err != nil || parsed < 0 {
+		return 0, fmt.Errorf("%s must be a non-negative duration", name)
 	}
 	return parsed, nil
 }

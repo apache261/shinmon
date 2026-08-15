@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"net/netip"
 	"sync"
@@ -18,19 +19,22 @@ import (
 )
 
 type Runtime struct {
-	pool           *pgxpool.Pool
-	environment    string
-	allowlist      []netip.Prefix
-	instanceID     string
-	advertiseAddr  string
-	pollInterval   time.Duration
-	healthInterval time.Duration
-	healthTimeout  time.Duration
-	logger         *slog.Logger
-	current        atomic.Pointer[Snapshot]
-	metrics        *observability.Metrics
-	events         <-chan coordination.Event
-	transport      http.RoundTripper
+	pool                 *pgxpool.Pool
+	environment          string
+	allowlist            []netip.Prefix
+	instanceID           string
+	advertiseAddr        string
+	pollInterval         time.Duration
+	pollJitter           time.Duration
+	healthInterval       time.Duration
+	healthTimeout        time.Duration
+	logger               *slog.Logger
+	current              atomic.Pointer[Snapshot]
+	metrics              *observability.Metrics
+	events               <-chan coordination.Event
+	transport            http.RoundTripper
+	configGeneration     atomic.Int64
+	credentialGeneration atomic.Int64
 }
 
 type RuntimeOptions struct {
@@ -40,6 +44,7 @@ type RuntimeOptions struct {
 	InstanceID     string
 	AdvertiseAddr  string
 	PollInterval   time.Duration
+	PollJitter     time.Duration
 	HealthInterval time.Duration
 	HealthTimeout  time.Duration
 	Logger         *slog.Logger
@@ -56,7 +61,7 @@ func NewRuntime(options RuntimeOptions) *Runtime {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	return &Runtime{pool: options.Pool, environment: options.Environment, allowlist: append([]netip.Prefix(nil), options.Allowlist...), instanceID: options.InstanceID, advertiseAddr: options.AdvertiseAddr, pollInterval: options.PollInterval, healthInterval: options.HealthInterval, healthTimeout: options.HealthTimeout, logger: options.Logger, metrics: options.Metrics, events: options.Events, transport: transport}
+	return &Runtime{pool: options.Pool, environment: options.Environment, allowlist: append([]netip.Prefix(nil), options.Allowlist...), instanceID: options.InstanceID, advertiseAddr: options.AdvertiseAddr, pollInterval: options.PollInterval, pollJitter: options.PollJitter, healthInterval: options.HealthInterval, healthTimeout: options.HealthTimeout, logger: options.Logger, metrics: options.Metrics, events: options.Events, transport: transport}
 }
 func (r *Runtime) Snapshot() *Snapshot { return r.current.Load() }
 
@@ -69,12 +74,16 @@ func (r *Runtime) Load(ctx context.Context) error {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	var version int64
+	var credentialGeneration int64
 	var encoded []byte
 	if err = tx.QueryRow(ctx, `SELECT c.id,c.snapshot FROM configuration_versions c JOIN environments e ON e.id=c.environment_id WHERE e.name=$1 AND c.status='active'`, r.environment).Scan(&version, &encoded); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return errors.New("no active configuration")
 		}
 		return errors.New("load active configuration")
+	}
+	if err = tx.QueryRow(ctx, credentialGenerationQuery, r.environment).Scan(&credentialGeneration); err != nil {
+		return errors.New("load credential generation")
 	}
 	var raw rawSnapshot
 	if err = json.Unmarshal(encoded, &raw); err != nil {
@@ -109,16 +118,20 @@ func (r *Runtime) Load(ctx context.Context) error {
 		copyHealth(previous, snapshot)
 	}
 	r.current.Store(snapshot)
+	r.configGeneration.Store(version)
+	r.credentialGeneration.Store(credentialGeneration)
 	if r.metrics != nil {
 		r.metrics.SetConfigurationVersion(version)
+		r.metrics.SnapshotRefreshed(time.Now())
 		r.updateUpstreamMetrics(snapshot)
 	}
 	return nil
 }
 
 func (r *Runtime) Run(ctx context.Context) {
-	poll := time.NewTicker(r.pollInterval)
-	health := time.NewTicker(r.healthInterval)
+	poll := time.NewTimer(jitteredDelay(r.pollInterval, r.pollJitter))
+	healthJitter := min(r.healthInterval/10, time.Second)
+	health := time.NewTimer(jitteredDelay(r.healthInterval, healthJitter))
 	heartbeat := time.NewTicker(10 * time.Second)
 	defer poll.Stop()
 	defer health.Stop()
@@ -131,16 +144,19 @@ func (r *Runtime) Run(ctx context.Context) {
 			r.report(context.Background(), false)
 			return
 		case <-poll.C:
-			if err := r.Load(ctx); err != nil {
+			changed, refreshErr := r.refreshIfChanged(ctx)
+			if refreshErr != nil {
 				if r.metrics != nil {
 					r.metrics.ConfigurationRefreshFailure()
 				}
-				r.logger.Warn("runtime snapshot refresh failed; retaining last valid snapshot", "error", err)
-			} else {
+				r.logger.Warn("runtime snapshot refresh failed; retaining last valid snapshot", "error", refreshErr)
+			} else if changed {
 				r.report(ctx, true)
 			}
+			poll.Reset(jitteredDelay(r.pollInterval, r.pollJitter))
 		case <-health.C:
 			r.probe(ctx)
+			health.Reset(jitteredDelay(r.healthInterval, healthJitter))
 		case <-heartbeat.C:
 			r.report(ctx, true)
 		case event, ok := <-events:
@@ -159,6 +175,41 @@ func (r *Runtime) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+const credentialGenerationQuery = `SELECT GREATEST(
+	COALESCE((SELECT MAX((EXTRACT(EPOCH FROM c.updated_at)*1000000)::BIGINT) FROM consumers c JOIN environments e ON e.id=c.environment_id WHERE e.name=$1),0),
+	COALESCE((SELECT MAX((EXTRACT(EPOCH FROM k.created_at)*1000000)::BIGINT) FROM api_keys k JOIN consumers c ON c.id=k.consumer_id JOIN environments e ON e.id=c.environment_id WHERE e.name=$1),0),
+	COALESCE((SELECT MAX((EXTRACT(EPOCH FROM k.revoked_at)*1000000)::BIGINT) FROM api_keys k JOIN consumers c ON c.id=k.consumer_id JOIN environments e ON e.id=c.environment_id WHERE e.name=$1),0)
+)`
+
+func (r *Runtime) refreshIfChanged(ctx context.Context) (bool, error) {
+	var configurationGeneration int64
+	var credentialGeneration int64
+	if err := r.pool.QueryRow(ctx, `SELECT c.id FROM configuration_versions c JOIN environments e ON e.id=c.environment_id WHERE e.name=$1 AND c.status='active'`, r.environment).Scan(&configurationGeneration); err != nil {
+		return false, errors.New("check configuration generation")
+	}
+	if err := r.pool.QueryRow(ctx, credentialGenerationQuery, r.environment).Scan(&credentialGeneration); err != nil {
+		return false, errors.New("check credential generation")
+	}
+	if configurationGeneration == r.configGeneration.Load() && credentialGeneration == r.credentialGeneration.Load() {
+		if r.metrics != nil {
+			r.metrics.ConfigurationRefreshSkipped()
+		}
+		return false, nil
+	}
+	if err := r.Load(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func jitteredDelay(interval, jitter time.Duration) time.Duration {
+	if interval <= 0 || jitter <= 0 {
+		return interval
+	}
+	spread := int64(jitter)*2 + 1
+	return interval - jitter + time.Duration(rand.Int64N(spread))
 }
 
 func (r *Runtime) probe(ctx context.Context) {

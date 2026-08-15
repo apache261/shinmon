@@ -1,0 +1,21 @@
+name: shinmon-multihost-images
+
+services:
+  gateway:
+    image: ${SHINMON_REGISTRY:-shinmon}/gateway:${SHINMON_IMAGE_TAG:-development}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.gateway
+
+  management:
+    image: ${SHINMON_REGISTRY:-shinmon}/gateway-admin:${SHINMON_IMAGE_TAG:-development}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.gateway-admin
+
+  dashboard:
+    image: ${SHINMON_REGISTRY:-shinmon}/dashboard:${SHINMON_IMAGE_TAG:-development}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.dashboard
+

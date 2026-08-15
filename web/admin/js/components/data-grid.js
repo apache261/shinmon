@@ -61,5 +61,5 @@ export function createGrid({ name, box, columns, items = [], toolbar = null, onS
   next.addEventListener('click', () => { page += 1; refresh(); });
   refresh();
 
-  return { grid, update(nextItems) { sourceRecords = records(nextItems); page = 1; refresh(); }, destroy() { if (w2ui[name]) w2ui[name].destroy(); host.replaceChildren(); host.classList.remove('data-grid-shell'); } };
+  return { grid, update(nextItems) { sourceRecords = records(nextItems); page = 1; refresh(); }, select(recid) { grid.select(recid); }, destroy() { if (w2ui[name]) w2ui[name].destroy(); host.replaceChildren(); host.classList.remove('data-grid-shell'); } };
 }

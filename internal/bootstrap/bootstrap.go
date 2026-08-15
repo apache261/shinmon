@@ -19,6 +19,7 @@ import (
 	"github.com/apache261/Shinmon/internal/httpapi"
 	"github.com/apache261/Shinmon/internal/observability"
 	"github.com/apache261/Shinmon/internal/server"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func Run(role config.Role) int {
@@ -80,7 +81,7 @@ func Run(role config.Role) int {
 			logger.Error("upstream TLS configuration failed", "error", err)
 			return 1
 		}
-		dataRuntime = dataplane.NewRuntime(dataplane.RuntimeOptions{Pool: pool, Environment: configured.Environment, Allowlist: configured.UpstreamCIDRs, InstanceID: configured.GatewayInstanceID, AdvertiseAddr: configured.GatewayAdvertiseAddr, PollInterval: configured.ConfigPollInterval, HealthInterval: configured.HealthInterval, HealthTimeout: configured.HealthTimeout, Logger: logger, Metrics: metrics, Events: coordinator.Events(ctx, configured.Environment), Transport: upstreamTransport})
+		dataRuntime = dataplane.NewRuntime(dataplane.RuntimeOptions{Pool: pool, Environment: configured.Environment, Allowlist: configured.UpstreamCIDRs, InstanceID: configured.GatewayInstanceID, AdvertiseAddr: configured.GatewayAdvertiseAddr, PollInterval: configured.ConfigPollInterval, PollJitter: configured.ConfigPollJitter, HealthInterval: configured.HealthInterval, HealthTimeout: configured.HealthTimeout, Logger: logger, Metrics: metrics, Events: coordinator.Events(ctx, configured.Environment), Transport: upstreamTransport})
 		if databaseErr = dataRuntime.Load(ctx); databaseErr != nil {
 			logger.Error("initial runtime snapshot failed", "error", databaseErr)
 			return 1
@@ -88,6 +89,7 @@ func Run(role config.Role) int {
 		handlerOptions.GatewayAPI = dataplane.NewHandler(dataplane.HandlerOptions{Snapshot: dataRuntime.Snapshot, TrustedProxyCIDRs: configured.TrustedProxyCIDRs, APIKeyPepper: configured.APIKeyPepper.Value(), Logger: logger, Metrics: metrics, Coordinator: coordinator, Transport: upstreamTransport})
 		go dataRuntime.Run(ctx)
 	}
+	go monitorMetrics(ctx, pool, configured.Environment, role == config.Admin, metrics, logger)
 	err = server.Run(ctx, server.Options{
 		Addr:            configured.ListenAddr,
 		Handler:         httpapi.New(handlerOptions),
@@ -108,4 +110,39 @@ func Run(role config.Role) int {
 	}
 	logger.Info("server stopped")
 	return 0
+}
+
+func monitorMetrics(ctx context.Context, pool *pgxpool.Pool, environment string, controlPlane bool, metrics *observability.Metrics, logger *slog.Logger) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	refresh := func() {
+		stats := pool.Stat()
+		metrics.SetDatabaseConnections(int64(stats.AcquiredConns()), int64(stats.MaxConns()))
+		if !controlPlane {
+			return
+		}
+		queryContext, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		var total, ready, current int64
+		if err := pool.QueryRow(queryContext, `WITH active AS (SELECT c.id FROM configuration_versions c JOIN environments e ON e.id=c.environment_id WHERE e.name=$1 AND c.status='active') SELECT COUNT(*),COUNT(*) FILTER (WHERE g.ready),COUNT(*) FILTER (WHERE g.ready AND g.loaded_configuration_version=(SELECT id FROM active)) FROM gateway_instances g JOIN environments e ON e.id=g.environment_id WHERE e.name=$1 AND g.last_seen_at>NOW()-INTERVAL '30 seconds'`, environment).Scan(&total, &ready, &current); err != nil {
+			logger.Warn("operational metrics refresh failed", "category", "gateway_replicas")
+			return
+		}
+		metrics.SetGatewayReplicas(ready, current, total)
+		var listenerTotal, listenerUsed int64
+		if err := pool.QueryRow(queryContext, `SELECT COUNT(*),COUNT(*) FILTER (WHERE p.status<>'available') FROM port_inventory p JOIN environments e ON e.id=p.environment_id WHERE e.name=$1`, environment).Scan(&listenerTotal, &listenerUsed); err != nil {
+			logger.Warn("operational metrics refresh failed", "category", "listener_capacity")
+			return
+		}
+		metrics.SetListenerPorts(listenerUsed, listenerTotal)
+	}
+	refresh()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			refresh()
+		}
+	}
 }

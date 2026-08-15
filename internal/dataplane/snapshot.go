@@ -109,6 +109,7 @@ type rawService struct {
 type rawServiceVersion struct {
 	ID               string `json:"id"`
 	ServiceID        string `json:"serviceId"`
+	HealthCheckPath  string `json:"healthCheckPath"`
 	RequestTimeoutMS int    `json:"requestTimeoutMs"`
 	MaxRequestBytes  int64  `json:"maxRequestBytes"`
 	Enabled          bool   `json:"enabled"`
@@ -158,6 +159,13 @@ func buildSnapshot(version int64, expectedEnvironment string, raw rawSnapshot, r
 	}
 	versions := map[string]rawServiceVersion{}
 	for _, version := range raw.ServiceVersions {
+		// Snapshots created before health-path inheritance use the original default.
+		if version.HealthCheckPath == "" {
+			version.HealthCheckPath = "/health"
+		}
+		if !strings.HasPrefix(version.HealthCheckPath, "/") {
+			return nil, fmt.Errorf("service version %s has invalid health path", version.ID)
+		}
 		if version.Enabled && enabledServices[version.ServiceID] && version.RequestTimeoutMS > 0 && version.MaxRequestBytes > 0 {
 			versions[version.ID] = version
 		}
@@ -181,6 +189,9 @@ func buildSnapshot(version int64, expectedEnvironment string, raw rawSnapshot, r
 			continue
 		}
 		path := item.HealthCheckPath
+		if path == "" {
+			path = versions[item.ServiceVersionID].HealthCheckPath
+		}
 		if !strings.HasPrefix(path, "/") {
 			return nil, fmt.Errorf("upstream %s has invalid health path", item.ID)
 		}

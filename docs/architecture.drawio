@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-08-12T06:45:00.000Z" version="24.7.17" type="device">
+  <diagram id="shinmon-multihost" name="Multi-Host Architecture">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0"/>
+
+        <!-- Ordered layers: boundaries at the back, then components, flows and annotations. -->
+        <mxCell id="layer-zones" value="01 — Zones &amp; boundaries" parent="0"/>
+        <mxCell id="layer-components" value="02 — Components" parent="0"/>
+        <mxCell id="layer-connectors" value="03 — Flows &amp; connectors" parent="0"/>
+        <mxCell id="layer-annotations" value="04 — Titles, notes &amp; legend" parent="0"/>
+
+        <!-- ZONES & BOUNDARIES -->
+        <mxCell id="public-zone" value="Public / client network" style="swimlane;html=1;rounded=1;startSize=36;horizontal=1;container=0;collapsible=0;fillColor=#EAF2FF;strokeColor=#4C9AFF;fontColor=#0747A6;fontStyle=1;fontSize=13;swimlaneLine=1;" vertex="1" parent="layer-zones">
+          <mxGeometry x="30" y="120" width="250" height="640" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-zone" value="Edge hosts (1–2)" style="swimlane;html=1;rounded=1;startSize=36;horizontal=1;container=0;collapsible=0;fillColor=#FFF7E6;strokeColor=#FFAB00;fontColor=#974F0C;fontStyle=1;fontSize=13;swimlaneLine=1;" vertex="1" parent="layer-zones">
+          <mxGeometry x="310" y="120" width="310" height="640" as="geometry"/>
+        </mxCell>
+        <mxCell id="app-zone" value="Application hosts" style="swimlane;html=1;rounded=1;startSize=36;horizontal=1;container=0;collapsible=0;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#006644;fontStyle=1;fontSize=13;swimlaneLine=1;" vertex="1" parent="layer-zones">
+          <mxGeometry x="650" y="120" width="430" height="640" as="geometry"/>
+        </mxCell>
+        <mxCell id="state-zone" value="State, platform &amp; upstream services" style="swimlane;html=1;rounded=1;startSize=36;horizontal=1;container=0;collapsible=0;fillColor=#F4F5F7;strokeColor=#7A869A;fontColor=#344563;fontStyle=1;fontSize=13;swimlaneLine=1;" vertex="1" parent="layer-zones">
+          <mxGeometry x="1110" y="120" width="460" height="640" as="geometry"/>
+        </mxCell>
+
+        <!-- FLOWS & CONNECTORS -->
+        <mxCell id="e-clients-vip" value="Allocated port" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#2684FF;fontColor=#0747A6;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="clients" target="vip">
+          <mxGeometry x="0" y="-12" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-vip-edge-pool" value="Approved listener range" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#FF991F;fontColor=#974F0C;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="vip" target="edge-pool">
+          <mxGeometry x="0" y="-10" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-edge-pool-gateway-pool" value="Private network" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.45;entryX=0;entryY=0.72;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#36B37E;fontColor=#006644;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="edge-pool" target="gateway-pool">
+          <mxGeometry x="0" y="-12" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-operators-dashboard" value="Management UI" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#6554C0;fontColor=#403294;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="operators" target="dashboard">
+          <mxGeometry x="0" y="-12" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-dashboard-admin" value="/admin/v1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#6554C0;fontColor=#403294;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="dashboard" target="admin">
+          <mxGeometry x="0" y="-10" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-discovery-edge" value="Backend membership" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.35;entryX=1;entryY=0.9;dashed=1;dashPattern=6 4;endArrow=open;endFill=0;strokeWidth=2;strokeColor=#2684FF;fontColor=#0747A6;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="discovery" target="edge-pool">
+          <mxGeometry x="0" y="-12" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="682"/>
+              <mxPoint x="640" y="500"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-gateway-upstreams" value="Proxy request" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.241;entryX=0;entryY=0.5;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#00875A;fontColor=#006644;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="gateway-pool" target="upstreams">
+          <mxGeometry x="0" y="-12" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-gateway-postgres" value="Config snapshot" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.83;entryX=0;entryY=0.25;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#5E6C84;fontColor=#344563;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="gateway-pool" target="postgres">
+          <mxGeometry x="0" y="-12" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-admin-postgres" value="DB updates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.35;entryX=0;entryY=0.75;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#5E6C84;fontColor=#344563;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="admin" target="postgres">
+          <mxGeometry x="-0.35" y="-10" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1140" y="556"/>
+              <mxPoint x="1140" y="463"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-gateway-redis" value="Runtime state" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=1;entryX=0;entryY=0.25;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#FF5630;fontColor=#BF2600;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="gateway-pool" target="redis">
+          <mxGeometry x="-0.55" y="-12" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1160" y="445"/>
+              <mxPoint x="1160" y="556"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-admin-redis" value="Refresh events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;entryX=0;entryY=0.75;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#FF5630;fontColor=#BF2600;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="layer-connectors" source="admin" target="redis">
+          <mxGeometry x="-0.25" y="12" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1160" y="583"/>
+              <mxPoint x="1160" y="609"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- COMPONENTS -->
+        <mxCell id="clients" value="API Clients&#xa;&#xa;Connect to an allocated listener port" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#2684FF;strokeWidth=2;fontColor=#0747A6;fontStyle=1;fontSize=14;spacing=8;" vertex="1" parent="layer-components">
+          <mxGeometry x="65" y="185" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="operators" value="Administrators&#xa;&#xa;Browser or API automation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAE6FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#403294;fontStyle=1;fontSize=14;spacing=8;" vertex="1" parent="layer-components">
+          <mxGeometry x="65" y="500" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="vip" value="L4 Load Balancer / VRRP VIP&#xa;&#xa;Publishes the approved port range" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFAE6;strokeColor=#FFAB00;strokeWidth=2;fontColor=#974F0C;fontStyle=1;fontSize=13;spacing=8;" vertex="1" parent="layer-components">
+          <mxGeometry x="350" y="180" width="230" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-pool" value="HAProxy edge pool" style="swimlane;html=1;rounded=1;startSize=30;horizontal=1;container=1;collapsible=0;fillColor=#FFF7E6;strokeColor=#FFAB00;strokeWidth=2;fontColor=#974F0C;fontStyle=1;fontSize=12;swimlaneLine=1;" vertex="1" parent="layer-components">
+          <mxGeometry x="340" y="305" width="250" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge1" value="Edge 1&#xa;&#xa;4100–4199" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF0B3;strokeColor=#FF991F;strokeWidth=2;fontColor=#974F0C;fontStyle=1;fontSize=12;spacing=6;" vertex="1" parent="edge-pool">
+          <mxGeometry x="20" y="58" width="95" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge2" value="Edge 2&#xa;&#xa;Same range" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF0B3;strokeColor=#FF991F;strokeWidth=2;fontColor=#974F0C;fontStyle=1;fontSize=12;spacing=6;" vertex="1" parent="edge-pool">
+          <mxGeometry x="135" y="58" width="95" height="88" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gateway-pool" value="Gateway data plane • 2–8 hosts" style="swimlane;html=1;rounded=1;startSize=32;horizontal=1;container=1;collapsible=0;fillColor=#E3FCEF;strokeColor=#36B37E;strokeWidth=2;fontColor=#006644;fontStyle=1;fontSize=12;swimlaneLine=1;" vertex="1" parent="layer-components">
+          <mxGeometry x="690" y="165" width="350" height="280" as="geometry"/>
+        </mxCell>
+        <mxCell id="gateway1" value="Gateway 1&#xa;:4040" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ABF5D1;strokeColor=#36B37E;strokeWidth=2;fontColor=#006644;fontStyle=1;fontSize=12;" vertex="1" parent="gateway-pool">
+          <mxGeometry x="25" y="62" width="135" height="72" as="geometry"/>
+        </mxCell>
+        <mxCell id="gateway2" value="Gateway 2&#xa;:4040" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ABF5D1;strokeColor=#36B37E;strokeWidth=2;fontColor=#006644;fontStyle=1;fontSize=12;" vertex="1" parent="gateway-pool">
+          <mxGeometry x="190" y="62" width="135" height="72" as="geometry"/>
+        </mxCell>
+        <mxCell id="gatewayN" value="Gateway 3…8&#xa;Scale horizontally" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 4;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#006644;fontStyle=1;fontSize=12;" vertex="1" parent="gateway-pool">
+          <mxGeometry x="105" y="174" width="140" height="68" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="management-plane" value="Management plane" style="swimlane;html=1;rounded=1;startSize=30;horizontal=1;container=1;collapsible=0;fillColor=#F5F3FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#403294;fontStyle=1;fontSize=12;swimlaneLine=1;" vertex="1" parent="layer-components">
+          <mxGeometry x="690" y="480" width="350" height="145" as="geometry"/>
+        </mxCell>
+        <mxCell id="dashboard" value="Dashboard&#xa;Nginx SPA :4042" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAE6FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#403294;fontStyle=1;fontSize=12;" vertex="1" parent="management-plane">
+          <mxGeometry x="20" y="52" width="135" height="68" as="geometry"/>
+        </mxCell>
+        <mxCell id="admin" value="Gateway Admin&#xa;1–2 hosts • :4041" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAE6FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#403294;fontStyle=1;fontSize=12;" vertex="1" parent="management-plane">
+          <mxGeometry x="195" y="52" width="135" height="68" as="geometry"/>
+        </mxCell>
+        <mxCell id="discovery" value="Internal DNS / static inventory&#xa;gateway.service.internal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#2684FF;strokeWidth=2;fontColor=#0747A6;fontStyle=1;fontSize=12;spacing=6;" vertex="1" parent="layer-components">
+          <mxGeometry x="755" y="660" width="220" height="72" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="upstreams" value="HTTP / HTTPS Upstreams&#xa;&#xa;Literal-IP allowlist • independent transport selection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3FCEF;strokeColor=#00875A;strokeWidth=2;fontColor=#006644;fontStyle=1;fontSize=13;spacing=8;" vertex="1" parent="layer-components">
+          <mxGeometry x="1185" y="180" width="310" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="postgres" value="PostgreSQL&#xa;&#xa;Authoritative configuration, credentials, approvals, listeners and audit history&#xa;&#xa;TLS • backups • PITR" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#DFE1E6;strokeColor=#5E6C84;strokeWidth=2;fontColor=#172B4D;fontStyle=1;fontSize=12;spacing=7;" vertex="1" parent="layer-components">
+          <mxGeometry x="1185" y="365" width="310" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="redis" value="Redis&#xa;&#xa;Ephemeral counters, circuits and Pub/Sub notifications&#xa;&#xa;May recover empty" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#FFEBE6;strokeColor=#FF5630;strokeWidth=2;fontColor=#BF2600;fontStyle=1;fontSize=12;spacing=7;" vertex="1" parent="layer-components">
+          <mxGeometry x="1185" y="530" width="310" height="105" as="geometry"/>
+        </mxCell>
+
+        <!-- TITLES, NOTES & LEGEND -->
+        <mxCell id="title" value="Shinmon — Small-to-Medium Multi-Host Architecture" style="text;html=1;align=center;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#172B4D;" vertex="1" parent="layer-annotations">
+          <mxGeometry x="250" y="20" width="1100" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Port-only routing • HTTP by default • Verified HTTPS when enabled • Single region" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontColor=#5E6C84;" vertex="1" parent="layer-annotations">
+          <mxGeometry x="300" y="62" width="1000" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="routing-note" value="Trusted listener metadata&#xa;&#xa;HAProxy removes client-supplied routing headers and sets X-Gateway-Listener-Port from the destination port." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#FFF7E6;strokeColor=#FFAB00;fontColor=#5D3600;fontSize=11;spacing=7;" vertex="1" parent="layer-annotations">
+          <mxGeometry x="345" y="625" width="240" height="108" as="geometry"/>
+        </mxCell>
+        <mxCell id="transport-note" value="Transport mode&#xa;&#xa;http: no certificates (default)&#xa;https: strict validation; no downgrade" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;fontColor=#0747A6;fontSize=11;spacing=7;" vertex="1" parent="layer-annotations">
+          <mxGeometry x="1185" y="655" width="310" height="78" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend" value="Solid arrow: request or control flow    •    Dashed arrow: discovery / membership update    •    Dashed component: optional horizontal capacity" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#5E6C84;" vertex="1" parent="layer-annotations">
+          <mxGeometry x="300" y="795" width="1000" height="28" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

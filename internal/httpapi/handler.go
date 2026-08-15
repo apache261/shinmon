@@ -181,6 +181,10 @@ func (r *responseRecorder) WriteHeader(status int) {
 func accessLog(logger *slog.Logger, next http.Handler, metrics *observability.Metrics) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
+		if metrics != nil {
+			metrics.BeginRequest()
+			defer metrics.EndRequest()
+		}
 		recorder := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(recorder, r)
 		duration := time.Since(started)

@@ -46,7 +46,7 @@ export function showListenerDetails({ listener, service, version, upstreams = []
     onOpen(event) {
       event.onComplete = () => {
         const host = document.querySelector(`#${hostID}`);
-        const introduction = document.createElement('p'); introduction.className = 'module-help-introduction'; introduction.textContent = 'Give the client-facing address and an API key to authorized consumers. Target addresses are operational details and should not be distributed to clients.';
+        const introduction = document.createElement('p'); introduction.className = 'module-help-introduction'; introduction.textContent = 'Give authorized consumers the client-facing address and an issued API key. They must send the key in the X-API-Key request header. Target addresses are operational details and should not be distributed to clients.';
         host.append(introduction);
         if (!listener.configurationVersion || listener.status !== 'active') {
           const warning = document.createElement('p'); warning.className = 'listener-publication-warning'; warning.setAttribute('role', 'alert');
@@ -54,7 +54,7 @@ export function showListenerDetails({ listener, service, version, upstreams = []
           host.append(warning);
         }
         const clientTitle = document.createElement('h3'); clientTitle.textContent = 'Distribute to API clients';
-        host.append(clientTitle, detailRow('Client address', endpoint, 'client address'), detailRow('Required access', listener.requiredPermission || 'None'), detailRow('Unprotected route regex', listener.unprotectedRouteRegex || 'None'));
+        host.append(clientTitle, detailRow('Client address', endpoint, 'client address'), detailRow('Authentication header', 'X-API-Key: <issued-api-key>', 'authentication header'), detailRow('Required access', listener.requiredPermission || 'None'), detailRow('Unprotected route regex', listener.unprotectedRouteRegex || 'None'));
         const targetTitle = document.createElement('h3'); targetTitle.textContent = 'Routing target'; host.append(targetTitle);
         host.append(detailRow('API', service ? `${service.displayName || service.name} / ${version?.version || 'unknown version'}` : listener.serviceVersionId));
         if (upstreams.length === 0) {

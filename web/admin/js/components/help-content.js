@@ -20,14 +20,14 @@ export const MODULE_HELP = Object.freeze({
   consumers: {
     title: 'Consumers & keys help',
     introduction: 'Consumers identify API clients. Access rules control what they may use, while issued keys are displayed only once.',
-    steps: ['Add access rules by choosing the API and a plain-language access level.', 'Add an API client and choose its allowed access.', 'Select the client and create a key; the key automatically inherits the client access.', 'Copy the key immediately; rotate or revoke it when required.'],
-    tips: ['Use Edit to change a client or access-rule notes.', 'Clients without key history and unused access rules can be removed.', 'Keys with security history are revoked rather than deleted.', 'Revocation is immediate across coordinated gateway replicas.'],
+    steps: ['Add access rules by choosing the API and a plain-language access level.', 'Add an API client and choose its allowed access.', 'Select the client and create a key; the key automatically inherits the client access.', 'Copy the key immediately and configure the client to send it as X-API-Key on protected requests.', 'Rotate or revoke the key when required.'],
+    tips: ['Client API keys use X-API-Key, not the management Authorization bearer header.', 'Use Edit to change a client or access-rule notes.', 'Clients without key history and unused access rules can be removed.', 'Keys with security history are revoked rather than deleted.', 'Revocation is immediate across coordinated gateway replicas.'],
   },
   configurations: {
     title: 'Configurations help',
     introduction: 'Configurations are complete, immutable snapshots. They let operators review and publish management changes to every gateway replica as one atomic update.',
-    steps: ['Finish service, listener, access, or traffic-policy changes in their modules.', 'Choose Create snapshot to capture the current management state.', 'Select the draft and validate it; validation checks references and enabled upstreams.', 'Collect independent approvals if the selected snapshot shows an approval requirement.', 'Activate the ready snapshot, or select a superseded version to restore it as a new live snapshot.'],
-    tips: ['The inspector shows only actions valid for the selected snapshot.', 'Creating a snapshot does not affect live traffic.', 'A rollback never edits history; it creates a new active version from the selected snapshot.'],
+    steps: ['Finish service, listener, access, or traffic-policy changes in their modules.', 'Choose Create snapshot to capture the current management state.', 'Select the draft and choose View details to validate it; validation checks references and enabled upstreams.', 'Collect independent approvals from the details dialog when required.', 'Open a ready snapshot and activate it, or open a superseded version to restore it as a new live snapshot.'],
+    tips: ['The details dialog shows only the action valid for the selected snapshot.', 'Creating a snapshot does not affect live traffic.', 'A rollback never edits history; it creates a new active version from the selected snapshot.'],
   },
   gateways: {
     title: 'Gateway health help',
@@ -40,5 +40,11 @@ export const MODULE_HELP = Object.freeze({
     introduction: 'Audit provides the immutable history of administrative changes and the actor responsible for each operation.',
     steps: ['Filter by action, resource, actor, or identifier.', 'Use the time column to establish change order.', 'Correlate an event with the affected management module.'],
     tips: ['Audit records are read-only.', 'The dashboard actor is the administrator identity supplied at login.'],
+  },
+  help: {
+    title: 'Setup guide help',
+    introduction: 'The setup guide links the management modules into the complete workflow required to publish an API listener and give an authorized client access.',
+    steps: ['Follow the numbered cards in order for a new API.', 'Use each Open module button to perform that part of the workflow.', 'Return to the guide to verify the completion checklist before testing client traffic.'],
+    tips: ['Management edits are not live until a configuration is activated.', 'Existing APIs can start at the step relevant to the change.', 'Use Audit to confirm who performed each management action.'],
   },
 });

@@ -1,12 +1,17 @@
-# Local runtime configuration contains development credentials.
 .env
 .env.test
 dashboard.env
+dashboard-prod.env
+dashboard-prod-http.env
 deploy.env
 deploy-dev.env
 deploy-prod.env
 
-# Local build and test output.
 bin/
 coverage.out
 .github/*
+
+
+*.[mM][dD]
+!/README.md
+!/web/README.md

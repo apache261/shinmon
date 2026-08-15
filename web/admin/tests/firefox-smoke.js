@@ -57,7 +57,7 @@ await waitFor("return document.querySelector('#login-screen').hidden && document
 const routes = [
   ['/services', 'Services'], ['/ports', 'Ports & listeners'],
   ['/consumers', 'Consumers & keys'], ['/configurations', 'Configurations'],
-  ['/gateways', 'Gateway health'], ['/audit', 'Audit'],
+  ['/gateways', 'Gateway health'], ['/audit', 'Audit'], ['/help', 'Help & setup guide'],
 ];
 for (const [route, heading] of routes) {
   await execute(`location.hash=${JSON.stringify(`#${route}`)}; return true`);

@@ -20,6 +20,7 @@ configureRouter({
   '/configurations': () => import('./views/configurations.js'),
   '/gateways': () => import('./views/gateways.js'),
   '/audit': () => import('./views/audit.js'),
+  '/help': () => import('./views/help.js'),
   '/not-found': () => import('./views/not-found.js'),
 });
 

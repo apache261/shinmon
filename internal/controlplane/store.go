@@ -169,7 +169,7 @@ func (s *Store) CreateUpstream(ctx context.Context, actor, environment, versionI
 func (s *Store) CreateUpstreamWithScheme(ctx context.Context, actor, environment, versionID, scheme, address string, port, weight int, healthPath string) (Upstream, error) {
 	parsed, err := netip.ParseAddr(strings.TrimSpace(address))
 	scheme = strings.ToLower(strings.TrimSpace(scheme))
-	if err != nil || parsed.IsUnspecified() || parsed.IsMulticast() || !s.addressAllowed(parsed) || (scheme != "http" && scheme != "https") || port < 1 || port > 65535 || weight < 1 || weight > 10000 || !validPath(healthPath) {
+	if err != nil || parsed.IsUnspecified() || parsed.IsMulticast() || !s.addressAllowed(parsed) || (scheme != "http" && scheme != "https") || port < 1 || port > 65535 || weight < 1 || weight > 10000 || !validOptionalPath(healthPath) {
 		return Upstream{}, ErrInvalid
 	}
 	id := newID("up")
@@ -206,7 +206,7 @@ func (s *Store) ListUpstreams(ctx context.Context, environment, versionID string
 func (s *Store) UpdateUpstream(ctx context.Context, actor, environment, id, scheme, address string, port, weight int, healthPath string, enabled bool, expectedVersion int64) (Upstream, error) {
 	scheme = strings.ToLower(strings.TrimSpace(scheme))
 	parsed, err := netip.ParseAddr(strings.TrimSpace(address))
-	if err != nil || scheme != "http" && scheme != "https" || port < 1 || port > 65535 || weight < 1 || weight > 10000 || !validPath(healthPath) || !s.addressAllowed(parsed) || expectedVersion < 1 {
+	if err != nil || scheme != "http" && scheme != "https" || port < 1 || port > 65535 || weight < 1 || weight > 10000 || !validOptionalPath(healthPath) || !s.addressAllowed(parsed) || expectedVersion < 1 {
 		return Upstream{}, ErrInvalid
 	}
 	var result Upstream
@@ -677,7 +677,7 @@ func (s *Store) CreateConfiguration(ctx context.Context, actor, environment stri
 		if err := tx.QueryRow(ctx, `SELECT jsonb_build_object(
 			'environment',$1::text,
 			'services',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'displayName',s.display_name,'enabled',s.enabled) ORDER BY s.name),'[]'::jsonb) FROM services s WHERE s.environment_id=e.id),
-			'serviceVersions',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',v.id,'serviceId',v.service_id,'version',v.version,'requestTimeoutMs',v.request_timeout_ms,'maxRequestBytes',v.max_request_bytes,'enabled',v.enabled) ORDER BY v.id),'[]'::jsonb) FROM service_versions v JOIN services s ON s.id=v.service_id WHERE s.environment_id=e.id),
+			'serviceVersions',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',v.id,'serviceId',v.service_id,'version',v.version,'healthCheckPath',v.health_check_path,'requestTimeoutMs',v.request_timeout_ms,'maxRequestBytes',v.max_request_bytes,'enabled',v.enabled) ORDER BY v.id),'[]'::jsonb) FROM service_versions v JOIN services s ON s.id=v.service_id WHERE s.environment_id=e.id),
 			'upstreams',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',u.id,'serviceVersionId',u.service_version_id,'scheme',u.scheme,'address',host(u.address),'port',u.port,'weight',u.weight,'healthCheckPath',u.health_check_path,'enabled',u.enabled) ORDER BY u.id),'[]'::jsonb) FROM upstreams u JOIN service_versions v ON v.id=u.service_version_id JOIN services s ON s.id=v.service_id WHERE s.environment_id=e.id),
 			'listeners',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',l.id,'listenPort',l.listen_port,'serviceVersionId',l.service_version_id,'requiredPermission',l.required_permission,'allowedMethods',l.allowed_methods,'allowedContentTypes',l.allowed_content_types,'unprotectedRouteRegex',l.unprotected_route_regex,'status',l.status,'rateLimitPerSecond',l.rate_limit_per_second,'rateLimitBurst',l.rate_limit_burst,'quotaRequestsPerMinute',l.quota_requests_per_minute,'circuitFailureThreshold',l.circuit_failure_threshold,'circuitOpenMs',l.circuit_open_ms) ORDER BY l.listen_port),'[]'::jsonb) FROM listeners l WHERE l.environment_id=e.id AND l.status<>'disabled')
 		) FROM environments e WHERE e.name=$1`, environment).Scan(&snapshot); err != nil {
@@ -942,6 +942,9 @@ func maskPrefix(prefix string) string {
 }
 func validPath(path string) bool {
 	return strings.HasPrefix(path, "/") && !strings.ContainsAny(path, "\r\n") && len(path) <= 256
+}
+func validOptionalPath(path string) bool {
+	return path == "" || validPath(path)
 }
 func normalizeMethods(input []string) ([]string, error) {
 	if len(input) == 0 {

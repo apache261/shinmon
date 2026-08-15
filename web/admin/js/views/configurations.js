@@ -4,7 +4,8 @@ import { createGrid } from '../components/data-grid.js';
 import { confirmAction } from '../components/confirm-dialog.js';
 import { notify } from '../components/notification.js';
 import { formatDate, statusHTML } from '../utils/formatting.js';
-import { approvalLabel, configurationActions, configurationGuidance } from '../utils/configuration-workflow.js';
+import { approvalLabel, configurationActions } from '../utils/configuration-workflow.js';
+import { showConfigurationDetails } from '../components/configuration-details-dialog.js';
 
 export async function render() {
   let grid;
@@ -53,85 +54,29 @@ export async function render() {
       </ol>
     </section>
 
-    <div class="configuration-layout">
-      <section class="panel configuration-history" aria-labelledby="snapshot-history-title">
-        <div class="section-heading compact-heading">
-          <div>
-            <p class="section-kicker">Immutable history</p>
-            <h2 id="snapshot-history-title">Snapshots</h2>
-          </div>
-          <p>Select a row to review its state and next action.</p>
+    <section class="panel configuration-history" aria-labelledby="snapshot-history-title">
+      <div class="section-heading compact-heading configuration-history-heading">
+        <div>
+          <p class="section-kicker">Immutable history</p>
+          <h2 id="snapshot-history-title">Snapshots</h2>
         </div>
-        <div id="configurations-grid" class="grid-host"></div>
-      </section>
-
-      <aside class="panel configuration-inspector" aria-labelledby="snapshot-details-title">
-        <p class="section-kicker">Selected snapshot</p>
-        <h2 id="snapshot-details-title">Details</h2>
-        <div id="configuration-empty" class="selection-empty">Select a snapshot from the history to continue.</div>
-        <div id="configuration-details" hidden>
-          <div class="configuration-identity">
-            <strong id="selected-version">—</strong>
-            <span id="selected-status"></span>
-          </div>
-          <dl class="detail-list">
-            <div><dt>Created by</dt><dd id="selected-creator">—</dd></div>
-            <div><dt>Created</dt><dd id="selected-created">—</dd></div>
-            <div><dt>Validated</dt><dd id="selected-validated">—</dd></div>
-            <div><dt>Activated</dt><dd id="selected-activated">—</dd></div>
-            <div><dt>Approvals</dt><dd id="selected-approvals">—</dd></div>
-            <div><dt>Restored from</dt><dd id="selected-source">—</dd></div>
-          </dl>
-          <div class="snapshot-scope" aria-label="Snapshot contents">
-            <span><strong id="selected-services">0</strong> services</span>
-            <span><strong id="selected-versions">0</strong> versions</span>
-            <span><strong id="selected-upstreams">0</strong> upstreams</span>
-            <span><strong id="selected-listeners">0</strong> listeners</span>
-          </div>
-          <div class="next-action-card">
-            <span>Recommended next step</span>
-            <p id="configuration-guidance"></p>
-          </div>
-          <div class="inspector-actions" aria-label="Snapshot actions">
-            <button id="validate-configuration" type="button">Validate draft</button>
-            <button id="approve-configuration" type="button">Record approval</button>
-            <button id="activate-configuration" type="button" class="primary-button">Activate snapshot</button>
-            <button id="rollback-configuration" type="button">Restore this version</button>
-          </div>
+        <div class="configuration-history-actions">
+          <p>Select a version to inspect its contents and available action.</p>
+          <button id="view-configuration-details" type="button" class="secondary-button" disabled>View details</button>
         </div>
-      </aside>
-    </div>`;
+      </div>
+      <div id="configurations-grid" class="grid-host"></div>
+    </section>`;
 
   const elements = {
     active: document.querySelector('#active-configuration'),
     activeMeta: document.querySelector('#active-configuration-meta'),
     drafts: document.querySelector('#draft-count'),
     ready: document.querySelector('#ready-count'),
-    empty: document.querySelector('#configuration-empty'),
-    details: document.querySelector('#configuration-details'),
-    version: document.querySelector('#selected-version'),
-    status: document.querySelector('#selected-status'),
-    creator: document.querySelector('#selected-creator'),
-    created: document.querySelector('#selected-created'),
-    validated: document.querySelector('#selected-validated'),
-    activated: document.querySelector('#selected-activated'),
-    approvals: document.querySelector('#selected-approvals'),
-    source: document.querySelector('#selected-source'),
-    services: document.querySelector('#selected-services'),
-    versions: document.querySelector('#selected-versions'),
-    upstreams: document.querySelector('#selected-upstreams'),
-    listeners: document.querySelector('#selected-listeners'),
-    guidance: document.querySelector('#configuration-guidance'),
-    validate: document.querySelector('#validate-configuration'),
-    approve: document.querySelector('#approve-configuration'),
-    activate: document.querySelector('#activate-configuration'),
-    rollback: document.querySelector('#rollback-configuration'),
+    viewDetails: document.querySelector('#view-configuration-details'),
   };
 
-  elements.validate.addEventListener('click', validate);
-  elements.approve.addEventListener('click', approve);
-  elements.activate.addEventListener('click', activate);
-  elements.rollback.addEventListener('click', rollback);
+  elements.viewDetails.addEventListener('click', openDetails);
 
   function updateSummary() {
     const active = items.find((item) => item.status === 'active');
@@ -141,37 +86,26 @@ export async function render() {
     elements.ready.textContent = String(items.filter((item) => configurationActions(item).activate).length);
   }
 
-  function updateInspector() {
-    elements.empty.hidden = Boolean(selected);
-    elements.details.hidden = !selected;
+  function updateSelection() {
+    elements.viewDetails.disabled = !selected;
+    elements.viewDetails.textContent = selected ? `View version ${selected.configurationVersion} details` : 'View details';
+  }
+
+  function openDetails() {
     if (!selected) return;
-    const actions = configurationActions(selected);
-    elements.version.textContent = `Version ${selected.configurationVersion}`;
-    elements.status.innerHTML = statusHTML(selected.status);
-    elements.creator.textContent = selected.createdBy || '—';
-    elements.created.textContent = formatDate(selected.createdAt);
-    elements.validated.textContent = formatDate(selected.validatedAt);
-    elements.activated.textContent = formatDate(selected.activatedAt);
-    elements.approvals.textContent = approvalLabel(selected);
-    elements.source.textContent = selected.sourceVersionId ? `Version ${selected.sourceVersionId}` : 'Original snapshot';
-    elements.services.textContent = String(selected.serviceCount || 0);
-    elements.versions.textContent = String(selected.versionCount || 0);
-    elements.upstreams.textContent = String(selected.upstreamCount || 0);
-    elements.listeners.textContent = String(selected.listenerCount || 0);
-    elements.guidance.textContent = configurationGuidance(selected);
-    elements.validate.hidden = !actions.validate;
-    elements.approve.hidden = !actions.approve;
-    elements.activate.hidden = !actions.activate;
-    elements.rollback.hidden = !actions.rollback;
+    showConfigurationDetails(selected, { onValidate: validate, onApprove: approve, onActivate: activate, onRollback: rollback });
   }
 
   async function load(preferredVersion = selected?.configurationVersion) {
     items = await api.get('/configurations');
     selected = items.find((item) => item.configurationVersion === preferredVersion) || null;
     updateSummary();
-    updateInspector();
+    updateSelection();
     const rows = items.map((item) => ({ ...item, approvalProgress: approvalLabel(item), sourceLabel: item.sourceVersionId ? `Restored from ${item.sourceVersionId}` : 'Original' }));
-    if (grid) grid.update(rows);
+    if (grid) {
+      grid.update(rows);
+      if (selected) grid.select(selected.configurationVersion);
+    }
     else {
       grid = createGrid({
         name: 'configurations_grid',
@@ -186,9 +120,10 @@ export async function render() {
         ],
         onSelect: (record) => {
           selected = items.find((item) => item.configurationVersion === record.configurationVersion) || record;
-          updateInspector();
+          updateSelection();
         },
       });
+      if (selected) grid.select(selected.configurationVersion);
     }
   }
 

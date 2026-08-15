@@ -114,25 +114,61 @@ compose_dashboard() {
 
 ensure_environment_file "$deploy_environment" "$environment_example"
 
-if [ "$profile" = production ] && [ "$action" = up ]; then
+transport_mode=$(sed -n 's/^SHINMON_TRANSPORT_MODE=//p' "$deploy_environment" | tail -n 1)
+transport_mode=${transport_mode:-http}
+case $transport_mode in
+  http|https) ;;
+  *)
+    echo "SHINMON_TRANSPORT_MODE must be http or https." >&2
+    exit 1
+    ;;
+esac
+if [ "$profile" = production ] && [ "$transport_mode" = http ]; then
+  dashboard_environment_example="$repository_root/dashboard-prod-http.env.example"
+fi
+
+if [ "$transport_mode" = https ]; then
+  if [ "$profile" = production ]; then
+    selected_haproxy_config=./deploy/haproxy/haproxy.https.production.cfg
+  else
+    selected_haproxy_config=./deploy/haproxy/haproxy.https.cfg
+  fi
+  export HAPROXY_CONFIG_PATH=${HAPROXY_CONFIG_PATH:-$selected_haproxy_config}
+  export GATEWAY_DATA_TLS_CERT_FILE=/etc/shinmon/tls/internal.crt
+  export GATEWAY_DATA_TLS_KEY_FILE=/etc/shinmon/tls/internal.key
+  export GATEWAY_ADMIN_TLS_CERT_FILE=/etc/shinmon/tls/internal.crt
+  export GATEWAY_ADMIN_TLS_KEY_FILE=/etc/shinmon/tls/internal.key
+  export GATEWAY_ADMIN_HEALTH_SCHEME=https
+  export DASHBOARD_LISTEN='4042 ssl'
+  export DASHBOARD_TLS_CONFIG='ssl_certificate /etc/shinmon/tls/dashboard.crt; ssl_certificate_key /etc/shinmon/tls/dashboard.key; ssl_protocols TLSv1.2 TLSv1.3;'
+  export DASHBOARD_HEALTH_SCHEME=https
+  export DASHBOARD_STACK_API_TARGET=https://gateway-admin:4041
+  export DASHBOARD_PROXY_TLS_CONFIG='proxy_ssl_verify on; proxy_ssl_trusted_certificate /etc/shinmon/tls/internal-ca.pem; proxy_ssl_server_name on; proxy_ssl_name gateway-admin;'
+else
+  if [ "$profile" = production ]; then
+    selected_haproxy_config=./deploy/haproxy/haproxy.production.cfg
+  else
+    selected_haproxy_config=./deploy/haproxy/haproxy.cfg
+  fi
+  export HAPROXY_CONFIG_PATH=${HAPROXY_CONFIG_PATH:-$selected_haproxy_config}
+  export GATEWAY_DATA_TLS_CERT_FILE=
+  export GATEWAY_DATA_TLS_KEY_FILE=
+  export GATEWAY_ADMIN_TLS_CERT_FILE=
+  export GATEWAY_ADMIN_TLS_KEY_FILE=
+  export GATEWAY_ADMIN_HEALTH_SCHEME=http
+  export DASHBOARD_LISTEN=4042
+  export DASHBOARD_TLS_CONFIG=
+  export DASHBOARD_HEALTH_SCHEME=http
+  export DASHBOARD_STACK_API_TARGET=http://gateway-admin:4041
+  export DASHBOARD_PROXY_TLS_CONFIG=
+fi
+
+if [ "$transport_mode" = https ] && [ "$action" = up ]; then
   ensure_environment_file "$dashboard_environment" "$dashboard_environment_example"
-  haproxy_config=$(sed -n 's/^HAPROXY_CONFIG_PATH=//p' "$deploy_environment" | tail -n 1)
-  haproxy_config=${haproxy_config:-./deploy/haproxy/haproxy.https.production.cfg}
+  haproxy_config=$HAPROXY_CONFIG_PATH
   case $haproxy_config in /*) ;; *) haproxy_config="$repository_root/${haproxy_config#./}" ;; esac
-  if [ ! -r "$haproxy_config" ] || ! grep -Eq '^[[:space:]]*bind :4300-4399 ssl ' "$haproxy_config"; then
-    echo "Production HAProxy configuration must terminate TLS on ports 4300-4399." >&2
-    exit 1
-  fi
-  if ! grep -Eq '^GATEWAY_ADMIN_TLS_CERT_FILE=/.+' "$deploy_environment" || \
-     ! grep -Eq '^GATEWAY_ADMIN_TLS_KEY_FILE=/.+' "$deploy_environment" || \
-     ! grep -Eq '^GATEWAY_ADMIN_HEALTH_SCHEME=https$' "$deploy_environment"; then
-    echo "Production management TLS settings are missing from $deploy_environment." >&2
-    exit 1
-  fi
-  if ! grep -Eq '^DASHBOARD_LISTEN=.*ssl' "$dashboard_environment" || \
-     ! grep -Eq '^DASHBOARD_API_TARGET=https://' "$dashboard_environment" || \
-     ! grep -Eq '^DASHBOARD_PROXY_TLS_CONFIG=.*proxy_ssl_verify on;' "$dashboard_environment"; then
-    echo "Production dashboard and management proxy must use verified HTTPS." >&2
+  if [ ! -r "$haproxy_config" ] || ! grep -Eq '^[[:space:]]*bind :[0-9]+-[0-9]+ ssl ' "$haproxy_config"; then
+    echo "HTTPS mode requires an HAProxy configuration that terminates TLS." >&2
     exit 1
   fi
   gateway_tls_dir=$(sed -n 's/^GATEWAY_TLS_DIR=//p' "$deploy_environment" | tail -n 1)
@@ -145,15 +181,36 @@ if [ "$profile" = production ] && [ "$action" = up ]; then
     "$gateway_tls_dir/edge.pem" \
     "$gateway_tls_dir/internal.crt" \
     "$gateway_tls_dir/internal.key" \
+    "$gateway_tls_dir/internal-ca.pem" \
     "$dashboard_tls_dir/dashboard.crt" \
     "$dashboard_tls_dir/dashboard.key" \
     "$dashboard_tls_dir/internal-ca.pem"
   do
     if [ ! -r "$required_file" ]; then
-      echo "Production TLS file is missing or unreadable: $required_file" >&2
+      echo "HTTPS TLS file is missing or unreadable: $required_file" >&2
       exit 1
     fi
   done
+  if ! openssl x509 -in "$gateway_tls_dir/edge.pem" -noout -checkend 86400 >/dev/null 2>&1 || \
+     ! openssl pkey -in "$gateway_tls_dir/edge.pem" -noout >/dev/null 2>&1 || \
+     ! openssl x509 -in "$gateway_tls_dir/internal.crt" -noout -checkend 86400 >/dev/null 2>&1 || \
+     ! openssl x509 -in "$gateway_tls_dir/internal.crt" -noout -checkhost gateway >/dev/null 2>&1 || \
+     ! openssl x509 -in "$gateway_tls_dir/internal.crt" -noout -checkhost gateway-admin >/dev/null 2>&1 || \
+     ! openssl verify -CAfile "$gateway_tls_dir/internal-ca.pem" "$gateway_tls_dir/internal.crt" >/dev/null 2>&1 || \
+     ! openssl x509 -in "$dashboard_tls_dir/dashboard.crt" -noout -checkend 86400 >/dev/null 2>&1; then
+    echo "HTTPS certificate validation failed; transport will not fall back to HTTP." >&2
+    exit 1
+  fi
+  edge_cert_key=$(openssl x509 -in "$gateway_tls_dir/edge.pem" -pubkey -noout | openssl sha256)
+  edge_private_key=$(openssl pkey -in "$gateway_tls_dir/edge.pem" -pubout 2>/dev/null | openssl sha256)
+  internal_cert_key=$(openssl x509 -in "$gateway_tls_dir/internal.crt" -pubkey -noout | openssl sha256)
+  internal_private_key=$(openssl pkey -in "$gateway_tls_dir/internal.key" -pubout 2>/dev/null | openssl sha256)
+  dashboard_cert_key=$(openssl x509 -in "$dashboard_tls_dir/dashboard.crt" -pubkey -noout | openssl sha256)
+  dashboard_private_key=$(openssl pkey -in "$dashboard_tls_dir/dashboard.key" -pubout 2>/dev/null | openssl sha256)
+  if [ "$edge_cert_key" != "$edge_private_key" ] || [ "$internal_cert_key" != "$internal_private_key" ] || [ "$dashboard_cert_key" != "$dashboard_private_key" ]; then
+    echo "HTTPS certificate validation failed; a private key does not match its certificate." >&2
+    exit 1
+  fi
 fi
 
 case $action in
@@ -171,12 +228,13 @@ case $action in
     compose_dashboard up -d --force-recreate --wait
 
     echo "Shinmon $profile_label deployment is ready."
-    if [ "$profile" = production ]; then
-      echo "TLS production profile is running; organizational production approval remains separate."
+    if [ "$transport_mode" = https ]; then
+      echo "HTTPS transport is enabled; organizational production approval remains separate."
       echo "Dashboard: https://127.0.0.1:4042"
       echo "Admin API: https://127.0.0.1:4041"
       echo "Default gateway listener pool: https://127.0.0.1:$default_port_pool"
     else
+      echo "HTTP transport is enabled for isolated development or trusted networks only."
       echo "Dashboard: http://127.0.0.1:4042"
       echo "Admin API: http://127.0.0.1:4041"
       echo "Default gateway listener pool: http://127.0.0.1:$default_port_pool"

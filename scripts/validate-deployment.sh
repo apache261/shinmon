@@ -4,6 +4,9 @@ set -eu
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 environment_file=${1:-"$repository_root/deploy-dev.env.example"}
 
+"$repository_root/scripts/validate-multihost.sh" "$repository_root/deploy/multihost/inventory.example.env"
+docker compose -f "$repository_root/deploy/multihost/images.compose.yml" config --quiet
+
 docker compose \
   -f "$repository_root/gateway-docker-compose.yml" \
   --env-file "$environment_file" \
@@ -30,8 +33,14 @@ cp "$temporary_tls/edge.crt" "$temporary_tls/edge.pem"
 sed -n '1,$p' "$temporary_tls/edge.key" >> "$temporary_tls/edge.pem"
 chmod 755 "$temporary_tls"
 chmod 644 "$temporary_tls/edge.pem"
-docker run --rm \
-  -v "$repository_root/deploy/haproxy/haproxy.https.production.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro" \
-  -v "$temporary_tls:/etc/shinmon/tls:ro" \
-  haproxy:3.2.21-alpine \
-  haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
+cp "$temporary_tls/edge.crt" "$temporary_tls/internal-ca.pem"
+for configuration in \
+  "$repository_root/deploy/haproxy/haproxy.https.cfg" \
+  "$repository_root/deploy/haproxy/haproxy.https.production.cfg"
+do
+  docker run --rm \
+    -v "$configuration:/usr/local/etc/haproxy/haproxy.cfg:ro" \
+    -v "$temporary_tls:/etc/shinmon/tls:ro" \
+    haproxy:3.2.21-alpine \
+    haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
+done

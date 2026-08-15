@@ -41,6 +41,30 @@ func TestBuildSnapshotAndWeightedSelection(t *testing.T) {
 	}
 }
 
+func TestBuildSnapshotInheritsAndOverridesVersionHealthPath(t *testing.T) {
+	raw := rawSnapshot{
+		Environment:     "development",
+		Services:        []rawService{{ID: "svc", Enabled: true}},
+		ServiceVersions: []rawServiceVersion{{ID: "v1", ServiceID: "svc", HealthCheckPath: "/ready", RequestTimeoutMS: 1000, MaxRequestBytes: 1024, Enabled: true}},
+		Upstreams: []rawUpstream{
+			{ID: "inherited", ServiceVersionID: "v1", Address: "192.168.1.10", Port: 8080, Weight: 1, Enabled: true},
+			{ID: "override", ServiceVersionID: "v1", Address: "192.168.1.11", Port: 8080, Weight: 1, HealthCheckPath: "/healthz", Enabled: true},
+		},
+		Listeners: []rawListener{{ID: "listener", ListenPort: 18081, ServiceVersionID: "v1", RequiredPermission: "rtp:v1:invoke", AllowedMethods: []string{"GET"}, Status: "active"}},
+	}
+	snapshot, err := buildSnapshot(1, "development", raw, nil, []netip.Prefix{netip.MustParsePrefix("192.168.0.0/16")})
+	if err != nil {
+		t.Fatalf("buildSnapshot: %v", err)
+	}
+	paths := map[string]string{}
+	for _, upstream := range snapshot.Listeners[18081].Upstreams {
+		paths[upstream.ID] = upstream.HealthCheckPath
+	}
+	if paths["inherited"] != "/ready" || paths["override"] != "/healthz" {
+		t.Fatalf("resolved health paths = %#v", paths)
+	}
+}
+
 func TestBuildSnapshotRejectsUnsafeConfiguration(t *testing.T) {
 	base := rawSnapshot{Environment: "development", Services: []rawService{{ID: "svc", Enabled: true}}, ServiceVersions: []rawServiceVersion{{ID: "v1", ServiceID: "svc", RequestTimeoutMS: 1000, MaxRequestBytes: 1024, Enabled: true}}, Upstreams: []rawUpstream{{ID: "a", ServiceVersionID: "v1", Address: "203.0.113.10", Port: 8080, Weight: 1, HealthCheckPath: "/health", Enabled: true}}, Listeners: []rawListener{{ID: "listener", ListenPort: 18081, ServiceVersionID: "v1", RequiredPermission: "rtp:v1:invoke", AllowedMethods: []string{"GET"}, Status: "active"}}}
 	if _, err := buildSnapshot(1, "development", base, nil, []netip.Prefix{netip.MustParsePrefix("192.168.0.0/16")}); err == nil {
@@ -109,5 +133,19 @@ func TestHealthProbeTransitions(t *testing.T) {
 	runtime.probe(t.Context())
 	if !upstream.Healthy() {
 		t.Fatal("successful health probe remained unhealthy")
+	}
+}
+
+func TestJitteredDelayStaysWithinConfiguredBounds(t *testing.T) {
+	const interval = 2 * time.Second
+	const jitter = 500 * time.Millisecond
+	for range 100 {
+		delay := jitteredDelay(interval, jitter)
+		if delay < interval-jitter || delay > interval+jitter {
+			t.Fatalf("jittered delay %v is outside %v-%v", delay, interval-jitter, interval+jitter)
+		}
+	}
+	if delay := jitteredDelay(interval, 0); delay != interval {
+		t.Fatalf("zero jitter delay = %v", delay)
 	}
 }

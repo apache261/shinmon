@@ -1,114 +1,139 @@
+<p align="center"><img src="web/admin/assets/shinmon-logo.svg" width="120" alt="Shinmon logo"></p>
+
 # Shinmon
 
-Shinmon is a port-only API management platform written in Go. HAProxy owns the
-external listener pools, two Go gateway replicas enforce traffic policies, and
-PostgreSQL stores authoritative configuration, credentials, approvals, and
-audit history. Redis is used only for ephemeral distributed coordination.
+Shinmon is a port-only API management platform I am building in Go. It gives
+you one place to register services, assign listener ports, create consumers,
+issue API keys, and publish gateway configurations.
 
-The independent administration dashboard is a native JavaScript SPA served by
-Nginx. It has no frontend build step.
+The stack uses HAProxy at the edge, two Go gateway replicas for traffic policy,
+PostgreSQL for persistent configuration, Redis for short-lived distributed
+state, and a dependency-light JavaScript dashboard served by Nginx.
 
-## Capabilities
+This is a project to explore and try in an environment you control. Run it,
+open the dashboard, and see whether the approach fits the APIs you handle.
 
-- Routing by trusted destination-listener port, never by `Host` or client
-  forwarding headers.
-- API-key HMAC verification, consumer permissions, one-time key display,
-  rotation, expiration, and revocation.
-- Editable services, whitespace-free version identifiers, HTTP/HTTPS literal-IP
-  upstreams, listeners, clients, permissions, and distributed policies.
-- Optional administrator-defined RE2 expressions for unprotected documentation
-  and static routes. Only matching `GET` and `HEAD` requests bypass API-key and
-  permission checks; operation methods remain protected.
-- Immutable configuration snapshots with validation, optional independent
-  approvals, activation, and rollback.
-- Weighted healthy-upstream selection, request limits, timeouts, content-type
-  and method policies, distributed rate limits and quotas, and shared circuits.
-- Structured redacted logs, fixed-cardinality metrics, correlation IDs, health
-  endpoints, and immutable audit events.
-- HTTP for isolated development and HTTPS transport profiles for secured
-  environments.
+## Run locally
 
-Shinmon is approved here for development and testing. The included HTTPS
-profile provides encrypted transport but does not constitute organizational
-production approval.
-
-## Quick start
-
-Requirements: Docker with Compose, POSIX shell utilities, and ports `4041-4044`
-plus `4100-4199` available on the host.
+You need Docker with Compose, POSIX shell utilities, ports `4041-4044`, and the
+listener range `4100-4199` available on your machine.
 
 ```sh
 ./deploy-dev.sh build
 ./deploy-dev.sh up
 ```
 
-The launcher creates `deploy-dev.env` and `dashboard.env` from their examples
-when absent, starts the database, Redis, management API, two gateways, HAProxy,
-and dashboard, then waits for health checks.
+The launcher creates `deploy-dev.env` and `dashboard.env` from the included
+examples when they do not exist. It then starts PostgreSQL, Redis, the
+management API, two gateway replicas, HAProxy, and the dashboard.
 
-Open `http://127.0.0.1:4042`. The example development administrator token is:
+Open the dashboard at `http://127.0.0.1:4042` and sign in with the example
+development administrator token:
 
 ```text
 shinmon-dev-bootstrap-token-change-me-4041
 ```
 
-Replace every placeholder secret before using the stack outside isolated local
-development. The dashboard keeps its bearer token only in the browser tab's
-memory.
+Open **Help** in the dashboard for the guided workflow. It walks through
+registering a service and version, adding upstreams, allocating a port, creating
+a consumer and permission, publishing a configuration, and issuing a key. The
+dashboard also explains the available fields while you explore them.
 
-Stop the stack while preserving PostgreSQL and Redis data:
+Copy an issued API key when it is shown. The raw key is displayed only once.
+Clients place it in the `X-API-Key` header on protected requests:
+
+```http
+X-API-Key: <issued-api-key>
+```
+
+`Authorization: Bearer ...` is for administrative and metrics endpoints, not
+for client API keys.
+
+Stop the stack without deleting PostgreSQL and Redis data:
 
 ```sh
 ./deploy-dev.sh down
 ```
 
-Development-only destructive reset:
+Delete the local development data and start fresh:
 
 ```sh
 ./deploy-dev.sh down -v
 ```
 
+## Run the production listener examples
+
+The production listener examples use ports `4300-4399`. Both HTTP and HTTPS
+profiles are included so you can test the setup that matches your environment.
+
+### HTTPS
+
+```sh
+cp deploy-prod.env.example deploy-prod.env
+cp dashboard-prod.env.example dashboard-prod.env
+./deploy-prod.sh build
+./deploy-prod.sh up
+```
+
+Before starting HTTPS, place these private files in `deploy/tls` or point the
+environment variables at a private directory:
+
+- `edge.pem` contains the edge certificate chain and private key.
+- `internal.crt` and `internal.key` secure the management API.
+- `internal-ca.pem` lets HAProxy and the dashboard verify internal HTTPS.
+- `dashboard.crt` and `dashboard.key` secure the dashboard.
+
+Do not commit certificates or private keys. Replace every placeholder password,
+token, and pepper in the copied environment files. HTTPS startup stops when a
+required file is missing and does not fall back to HTTP.
+
+### HTTP
+
+```sh
+cp deploy-prod-http.env.example deploy-prod.env
+cp dashboard-prod-http.env.example dashboard-prod.env
+./deploy-prod.sh build
+./deploy-prod.sh up
+```
+
+HTTP is convenient for an isolated test, but it sends API keys, administrator
+credentials, and traffic without transport encryption. Keep that in mind when
+choosing where to run it.
+
+## Run only the dashboard
+
+Start the gateway stack first so its control network exists. You can then
+manage the dashboard separately:
+
+```sh
+# Development over HTTP
+./deploy-dashboard.sh dev up
+
+# Production listener profile over HTTP
+./deploy-dashboard.sh prod http up
+
+# Production listener profile over HTTPS
+./deploy-dashboard.sh prod https up
+```
+
+Replace `up` with `down` to stop a profile. Use `config` to validate it or
+`pull` to fetch the Nginx image.
+
 ## Default ports
 
-| Component | Port |
-|---|---:|
-| Gateway internal HTTP | `4040` |
-| Management API | `4041` |
-| Dashboard | `4042` |
-| PostgreSQL host publication | `4043` |
-| Redis host publication | `4044` |
-| Development listeners | `4100-4199` |
-| Staging listeners | `4200-4299` |
-| Production listeners | `4300-4399` |
+- Gateway internal HTTP: `4040`
+- Management API: `4041`
+- Dashboard: `4042`
+- PostgreSQL host publication: `4043`
+- Redis host publication: `4044`
+- Development listeners: `4100-4199`
+- Staging listeners: `4200-4299`
+- Production listeners: `4300-4399`
 
-The management, PostgreSQL, and Redis host publications bind to loopback by
-default. Gateway replicas are not published directly; HAProxy supplies trusted
-`X-Gateway-Listener-Port` metadata and removes any client-supplied value.
+The management API, PostgreSQL, and Redis bind to loopback by default. Gateway
+replicas are reached through HAProxy rather than published directly.
 
-## Administration workflow
-
-1. Register a service and version.
-2. Add one or more allowlisted literal-IP upstreams using HTTP or verified
-   HTTPS.
-3. Create an access rule and assign it to an API client.
-4. Allocate a listener and configure methods, content types, and policies.
-5. Create, validate, approve when required, and activate a configuration.
-6. Issue an API key and copy the raw value from its one-time response.
-
-See [Administrator guide](docs/administration.md) for editing, unprotected route
-regexes, and publication behavior.
-
-## Documentation
-
-- [Deployment](docs/deployment.md)
-- [Administration](docs/administration.md)
-- [Management API reference](docs/management-api.md)
-- [Operations runbook](docs/operations.md)
-- [Testing and release checks](docs/testing.md)
-- [Distributed coordination and approvals](docs/distributed-coordination.md)
-- [TLS file layout](deploy/tls/README.md)
-
-## Development verification
+## Run the checks
 
 ```sh
 gofmt -w cmd internal
@@ -118,8 +143,30 @@ go build ./cmd/gateway ./cmd/gateway-admin ./cmd/shinmon-loadtest
 npm test --prefix web/admin
 sh -n scripts/*.sh
 ./scripts/validate-deployment.sh deploy-dev.env.example
+./scripts/validate-deployment.sh deploy-prod-http.env.example
+./scripts/validate-deployment.sh deploy-prod.env.example
 ```
 
-PostgreSQL and Redis integration tests must use disposable data stores. See
-[Testing and release checks](docs/testing.md) for the full commands and security
-scan requirements.
+Integration tests need disposable PostgreSQL and Redis instances. The stack
+scripts under `scripts/` cover integration, coordination, load, smoke, and
+security checks when you want to dig further.
+
+## Why I built it
+
+I am a software developer who became annoyed by the number of APIs I had to
+track across different addresses, ports, credentials, permissions, health
+checks, and deployment notes. Shinmon grew from wanting those boundaries and
+the publishing workflow in one place.
+
+I built much of it during spare time while travelling, waiting in airports,
+staying in hotels, and sometimes waiting for my girlfriend to finish her
+makeup. It gave me a practical way to explore Go beyond tutorials.
+
+The name **Shinmon** comes from the Japanese word **神門** (*shinmon*), which
+refers to a gate at a Shinto shrine. I found it while googling names, and the
+idea of a guarded boundary fit the project. The logo uses the same idea with a
+gate and an S-shaped route through the center.
+
+Kubernetes is not supported yet because I am still early in learning it. The
+current setup focuses on Docker Compose and multi-host deployment, while I keep
+working toward Kubernetes support.

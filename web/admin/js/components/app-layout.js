@@ -9,6 +9,7 @@ const nodes = [
   { id: '/configurations', text: 'Configurations', icon: 'w2ui-icon-check' },
   { id: '/gateways', text: 'Gateway health', icon: 'w2ui-icon-search' },
   { id: '/audit', text: 'Audit', icon: 'w2ui-icon-page' },
+  { id: '/help', text: 'Help', icon: 'w2ui-icon-info' },
 ];
 
 window.__shinmonDiagnostics = Object.freeze({ w2uiObjectCount: () => Object.keys(w2ui).length });
@@ -18,7 +19,7 @@ export function createAppLayout({ onLogout, onRefresh }) {
   const layout = new w2layout({ name: 'shinmon_layout', panels: [{ type: 'top', size: 58 }, { type: 'left', size: 220, resizable: true }, { type: 'main' }] });
   layout.render('#app');
   const sidebar = new w2sidebar({ name: 'shinmon_sidebar', nodes, onClick(event) { navigate(event.target ?? event.detail?.target); } });
-  const toolbar = new w2toolbar({ name: 'shinmon_toolbar', items: [{ type: 'html', id: 'brand', html: '<div class="app-brand"><div class="brand-mark">S</div><div>Shinmon<small>API Management Platform</small></div></div>' }, { type: 'spacer' }, { type: 'button', id: 'refresh', text: 'Refresh', icon: 'w2ui-icon-reload' }, { type: 'button', id: 'logout', text: 'Logout', icon: 'w2ui-icon-cross' }], onClick(event) { const id = event.target ?? event.detail?.target; if (id === 'logout') onLogout(); if (id === 'refresh') onRefresh(); } });
+  const toolbar = new w2toolbar({ name: 'shinmon_toolbar', items: [{ type: 'html', id: 'brand', html: '<div class="app-brand"><img class="brand-logo" src="/assets/shinmon-logo.svg" alt=""><div>Shinmon<small>API Management Platform</small></div></div>' }, { type: 'spacer' }, { type: 'button', id: 'refresh', text: 'Refresh', icon: 'w2ui-icon-reload' }, { type: 'button', id: 'logout', text: 'Logout', icon: 'w2ui-icon-cross' }], onClick(event) { const id = event.target ?? event.detail?.target; if (id === 'logout') onLogout(); if (id === 'refresh') onRefresh(); } });
   layout.html('left', sidebar); layout.html('top', toolbar); sidebar.select(currentRoute());
   const selectRoute = () => sidebar.select(currentRoute());
   window.addEventListener('hashchange', selectRoute);

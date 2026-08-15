@@ -213,9 +213,6 @@ func (h *Handler) serviceVersions(r *http.Request, segments []string) (any, int,
 	if input.Scheme == "" {
 		input.Scheme = "http"
 	}
-	if input.HealthCheckPath == "" {
-		input.HealthCheckPath = "/health"
-	}
 	item, err := h.store.CreateUpstreamWithScheme(r.Context(), actor(r), h.environment, segments[3], input.Scheme, input.Address, input.Port, input.Weight, input.HealthCheckPath)
 	return item, http.StatusCreated, err
 }

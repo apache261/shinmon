@@ -34,6 +34,36 @@ test('first-party dashboard does not persist credentials or use remote assets', 
   for (const path of firstParty) {
     const source = await readFile(path, 'utf8');
     assert.doesNotMatch(source, /\b(?:localStorage|sessionStorage)\b/, path);
-    assert.doesNotMatch(source, /https?:\/\//, path);
+    assert.doesNotMatch(source.replaceAll('http://www.w3.org/2000/svg', ''), /https?:\/\//, path);
   }
+});
+
+test('client connection guidance names the API key header', async () => {
+  for (const relativePath of [
+    'js/views/consumers.js',
+    'js/components/secret-dialog.js',
+    'js/components/listener-details-dialog.js',
+    'js/components/help-content.js',
+  ]) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    assert.match(source, /X-API-Key/, relativePath);
+  }
+});
+
+test('configuration details use an explicit selection dialog', async () => {
+  const view = await readFile(join(root, 'js/views/configurations.js'), 'utf8');
+  const dialog = await readFile(join(root, 'js/components/configuration-details-dialog.js'), 'utf8');
+  assert.match(view, /view-configuration-details/);
+  assert.doesNotMatch(view, /configuration-inspector/);
+  assert.match(dialog, /configuration-details-dialog/);
+  assert.match(dialog, /configuration-dialog-actions/);
+});
+
+test('dashboard branding uses the local Shinmon logo', async () => {
+  const index = await readFile(join(root, 'index.html'), 'utf8');
+  const layout = await readFile(join(root, 'js/components/app-layout.js'), 'utf8');
+  const logo = await readFile(join(root, 'assets/shinmon-logo.svg'), 'utf8');
+  assert.match(index, /assets\/shinmon-logo\.svg/);
+  assert.match(layout, /assets\/shinmon-logo\.svg/);
+  assert.match(logo, /<title[^>]*>Shinmon logo<\/title>/);
 });

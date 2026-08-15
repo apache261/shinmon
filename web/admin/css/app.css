@@ -31,7 +31,8 @@ a { color: var(--color-info); }
 .login-screen { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: var(--space-5); background: radial-gradient(circle at 20% 10%, #173b4a 0, transparent 34%), radial-gradient(circle at 80% 90%, #183056 0, transparent 38%), var(--color-bg); }
 .login-screen[hidden] { display: none; }
 .login-card { width: min(430px, 100%); padding: 2.4rem; display: grid; gap: var(--space-3); background: color-mix(in srgb, var(--color-surface) 92%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
-.brand-mark { width: 3.2rem; height: 3.2rem; display: grid; place-items: center; border-radius: 14px; background: linear-gradient(135deg, var(--color-primary), var(--color-info)); color: #03120e; font-size: 1.5rem; font-weight: 800; }
+.brand-logo { display: block; width: 2rem; height: 2rem; }
+.brand-logo-login { width: 4rem; height: 4rem; margin-inline: auto; }
 .eyebrow { margin: .4rem 0 -.5rem; color: var(--color-primary); font-size: .78rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .login-card h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.3rem); }
 .tagline, .security-note { color: var(--color-muted); }

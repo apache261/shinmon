@@ -30,6 +30,9 @@ func TestLoadDataPlaneDefaults(t *testing.T) {
 	if configured.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("ShutdownTimeout = %v", configured.ShutdownTimeout)
 	}
+	if configured.ConfigPollJitter != 500*time.Millisecond {
+		t.Fatalf("ConfigPollJitter = %v", configured.ConfigPollJitter)
+	}
 	if got := configured.TrustedProxyCIDRs[1].String(); got != "10.0.0.0/8" {
 		t.Fatalf("masked CIDR = %q", got)
 	}
@@ -85,6 +88,8 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{name: "malformed CIDR", role: DataPlane, values: merge(validData, "GATEWAY_TRUSTED_PROXY_CIDRS", "not-a-cidr"), contains: "invalid CIDR"},
 		{name: "missing instance ID", role: DataPlane, values: merge(validData, "GATEWAY_INSTANCE_ID", ""), contains: "GATEWAY_INSTANCE_ID is required"},
 		{name: "health timeout too long", role: DataPlane, values: merge(merge(validData, "GATEWAY_UPSTREAM_HEALTH_INTERVAL", "1s"), "GATEWAY_UPSTREAM_HEALTH_TIMEOUT", "1s"), contains: "must be shorter"},
+		{name: "invalid poll jitter", role: DataPlane, values: merge(validData, "GATEWAY_CONFIG_POLL_JITTER", "soon"), contains: "non-negative duration"},
+		{name: "poll jitter too long", role: DataPlane, values: merge(validData, "GATEWAY_CONFIG_POLL_JITTER", "2s"), contains: "must be shorter"},
 		{name: "short admin token", role: Admin, values: merge(validAdmin, "GATEWAY_ADMIN_BEARER_TOKEN", "too-short"), contains: "at least 32"},
 		{name: "short API key pepper", role: Admin, values: merge(validAdmin, "GATEWAY_API_KEY_PEPPER", "too-short"), contains: "GATEWAY_API_KEY_PEPPER"},
 		{name: "missing database URL", role: Admin, values: merge(validAdmin, "GATEWAY_DATABASE_URL", ""), contains: "GATEWAY_DATABASE_URL is required"},

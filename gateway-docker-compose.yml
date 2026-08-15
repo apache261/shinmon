@@ -20,6 +20,7 @@ x-gateway-environment: &gateway-environment
   GATEWAY_TLS_KEY_FILE: ${GATEWAY_DATA_TLS_KEY_FILE:-}
   GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-10.254.240.10/32}
   GATEWAY_CONFIG_POLL_INTERVAL: ${GATEWAY_CONFIG_POLL_INTERVAL:-2s}
+  GATEWAY_CONFIG_POLL_JITTER: ${GATEWAY_CONFIG_POLL_JITTER:-500ms}
   GATEWAY_UPSTREAM_HEALTH_INTERVAL: ${GATEWAY_UPSTREAM_HEALTH_INTERVAL:-10s}
   GATEWAY_UPSTREAM_HEALTH_TIMEOUT: ${GATEWAY_UPSTREAM_HEALTH_TIMEOUT:-2s}
   GATEWAY_UPSTREAM_TLS_CA_FILE: ${GATEWAY_UPSTREAM_TLS_CA_FILE:-}
@@ -126,6 +127,8 @@ services:
     networks:
       edge:
         ipv4_address: ${GATEWAY_1_EDGE_IP:-10.254.240.21}
+        aliases:
+          - gateway
       control:
 
   gateway-2:
@@ -149,6 +152,8 @@ services:
     networks:
       edge:
         ipv4_address: ${GATEWAY_2_EDGE_IP:-10.254.240.22}
+        aliases:
+          - gateway
       control:
 
   haproxy:

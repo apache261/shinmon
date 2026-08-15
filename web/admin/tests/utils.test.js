@@ -67,7 +67,7 @@ test('form list values normalize single and multiple W2UI selections', () => {
 });
 
 test('every management module provides actionable help content', () => {
-  assert.deepEqual(Object.keys(MODULE_HELP).sort(), ['audit', 'configurations', 'consumers', 'gateways', 'overview', 'ports', 'services']);
+  assert.deepEqual(Object.keys(MODULE_HELP).sort(), ['audit', 'configurations', 'consumers', 'gateways', 'help', 'overview', 'ports', 'services']);
   for (const content of Object.values(MODULE_HELP)) {
     assert.ok(content.introduction.length > 20);
     assert.ok(content.steps.length >= 3);

@@ -124,7 +124,7 @@ await waitFor("document.querySelector('#request-loader')?.hidden === true");
 const routes = [
   ['/overview', 'Overview'], ['/services', 'Services'], ['/ports', 'Ports & listeners'],
   ['/consumers', 'Consumers & keys'], ['/configurations', 'Configurations'],
-  ['/gateways', 'Gateway health'], ['/audit', 'Audit'],
+  ['/gateways', 'Gateway health'], ['/audit', 'Audit'], ['/help', 'Help & setup guide'],
 ];
 const headings = [];
 let maximumW2UIObjects = 0;
@@ -150,6 +150,10 @@ for (let cycle = 0; cycle < 5; cycle += 1) {
 assert.equal(new Set(headings).size, routes.length, 'routes did not render distinct views');
 assert.ok(firstCycleW2UIObjects >= 3 && firstCycleW2UIObjects <= 20, `W2UI registry reached an unexpected baseline of ${firstCycleW2UIObjects} objects`);
 
+await evaluate("location.hash = '#/help'; true");
+await waitFor("document.documentElement.dataset.renderedRoute === '/help' && document.querySelectorAll('.setup-guide-step').length === 5");
+assert.ok(await evaluate("document.querySelector('.setup-guide-steps')?.textContent.includes('X-API-Key: <issued-api-key>')"), 'setup guide omitted the client authentication header');
+
 await evaluate("location.hash = '#/configurations'; true");
 await waitFor("document.documentElement.dataset.renderedRoute === '/configurations' && document.querySelectorAll('.workflow-steps li').length === 5");
 assert.equal(await evaluate("document.querySelectorAll('.configuration-summary .summary-card').length"), 3, 'configuration summary is incomplete');
@@ -157,8 +161,12 @@ assert.equal(await evaluate("document.querySelector('.view-header .view-actions'
 const configurationCount = await evaluate("document.querySelectorAll('#configurations-grid [recid]').length");
 if (configurationCount > 0) {
   await evaluate("document.querySelector('#configurations-grid [recid]')?.click(); true");
-  await waitFor("document.querySelector('#configuration-details')?.hidden === false && document.querySelector('#configuration-guidance')?.textContent.length > 20");
-  assert.ok(await evaluate("document.querySelectorAll('.inspector-actions button:not([hidden])').length") <= 1, 'configuration inspector exposed conflicting lifecycle actions');
+  await waitFor("document.querySelector('#view-configuration-details')?.disabled === false");
+  await evaluate("document.querySelector('#view-configuration-details').click(); true");
+  await waitFor("document.querySelector('#w2ui-popup .configuration-details-dialog') && document.querySelector('#configuration-guidance')?.textContent.length > 20");
+  assert.ok(await evaluate("document.querySelectorAll('#w2ui-popup .configuration-dialog-actions button').length") <= 1, 'configuration dialog exposed conflicting lifecycle actions');
+  await evaluate("[...document.querySelectorAll('#w2ui-popup button')].find((button) => button.textContent.trim() === 'Close')?.click(); true");
+  await waitFor("document.querySelector('#w2ui-popup') === null");
 }
 
 await evaluate("location.hash = '#/ports'; true");
@@ -185,6 +193,7 @@ if (listenerCount > 0) {
   await evaluate("document.querySelector('#listener-details').click(); true");
   await waitFor("document.querySelector('#w2ui-popup .listener-details')?.textContent.includes('Client address') && document.querySelector('#w2ui-popup .listener-details')?.textContent.includes('Routing target')");
   assert.ok(await evaluate("document.querySelector('#w2ui-popup .listener-detail-row code')?.textContent.includes(':')"), 'connection details did not display a client-facing port');
+  assert.ok(await evaluate("document.querySelector('#w2ui-popup .listener-details')?.textContent.includes('X-API-Key: <issued-api-key>')"), 'connection details did not explain the client authentication header');
   await evaluate("[...document.querySelectorAll('#w2ui-popup button')].find((button) => button.textContent.trim() === 'Close')?.click(); true");
   await waitFor("document.querySelector('#w2ui-popup') === null");
 }

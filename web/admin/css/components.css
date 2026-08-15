@@ -32,10 +32,11 @@
 .workflow-steps strong, .workflow-steps small { display: block; }
 .workflow-steps strong { margin-bottom: var(--space-1); font-size: .82rem; }
 .workflow-steps small { color: var(--color-muted); font-size: .72rem; line-height: 1.4; }
-.configuration-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, .75fr); align-items: start; gap: var(--space-4); }
 .configuration-history .grid-host { min-height: 520px; }
-.configuration-inspector { position: sticky; top: 0; min-height: 520px; }
-.selection-empty { min-height: 24rem; display: grid; place-items: center; padding: var(--space-5); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); color: var(--color-muted); text-align: center; line-height: 1.5; }
+.configuration-history-actions { display: flex; align-items: center; gap: var(--space-3); }
+.configuration-history-actions p { max-width: 28rem; margin: 0; color: var(--color-muted); font-size: .88rem; line-height: 1.5; }
+.configuration-history-actions button { flex: 0 0 auto; }
+.configuration-details-dialog { height: 100%; overflow: auto; padding: var(--space-5); color: var(--color-text); }
 .configuration-identity { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
 .configuration-identity > strong { font-size: 1.35rem; letter-spacing: -.02em; }
 .detail-list { margin: var(--space-3) 0; }
@@ -48,9 +49,7 @@
 .next-action-card { margin: var(--space-4) 0; padding: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-info) 42%, var(--color-border)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-info) 8%, var(--color-surface-raised)); }
 .next-action-card span { color: var(--color-info); font-size: .68rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .next-action-card p { margin: var(--space-2) 0 0; font-size: .84rem; line-height: 1.5; }
-.inspector-actions { display: grid; gap: var(--space-2); }
-.inspector-actions button { width: 100%; }
-.inspector-actions button[hidden] { display: none; }
+.configuration-dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .loading-state, .empty-state, .error-state { min-height: 240px; display: grid; place-items: center; padding: var(--space-6); text-align: center; color: var(--color-muted); }
 .spinner { width: 2rem; height: 2rem; border: 3px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -67,6 +66,7 @@
 .dialog-form input, .dialog-form select, .dialog-form textarea { width: 100%; padding: .65rem; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
 .field-help { max-width: 30rem; display: block; margin-top: var(--space-1); color: var(--color-muted); font-size: .72rem; line-height: 1.4; }
 .secret-once { width: 100%; padding: .8rem; font-family: ui-monospace, monospace; word-break: break-all; color: var(--color-warning); background: var(--color-bg); border: 1px solid var(--color-warning); border-radius: var(--radius-sm); }
+.secret-usage { display: block; padding: .7rem .8rem; overflow-wrap: anywhere; color: var(--color-text); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
 .w2ui-grid, .w2ui-sidebar, .w2ui-toolbar { color-scheme: dark; }
 .w2ui-popup button.w2ui-btn, .w2ui-form button.w2ui-btn { min-height: 2.35rem; padding: .62rem .9rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-raised); color: var(--color-text); font-weight: 750; box-shadow: 0 1px 2px rgb(0 0 0 / 18%); }
 .w2ui-popup button.w2ui-btn:hover:not(:disabled), .w2ui-form button.w2ui-btn:hover:not(:disabled) { border-color: var(--color-info); background: color-mix(in srgb, var(--color-info) 14%, var(--color-surface-raised)); color: var(--color-text); }
@@ -91,21 +91,34 @@
 .listener-detail-row button { min-height: 2rem; padding: .45rem .7rem; }
 .listener-target-empty { padding: var(--space-3); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); color: var(--color-muted); }
 .listener-publication-warning { padding: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-warning) 65%, var(--color-border)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface)); color: var(--color-warning); font-weight: 750; line-height: 1.45; }
+.setup-guide-notice { margin-bottom: var(--space-5); border-color: color-mix(in srgb, var(--color-info) 42%, var(--color-border)); }
+.setup-guide-notice > p { max-width: 70rem; color: var(--color-muted); line-height: 1.55; }
+.setup-guide-notice > p:last-child { margin-bottom: 0; }
+.setup-guide-steps { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.setup-guide-step { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); align-items: start; gap: var(--space-3); }
+.setup-guide-number { width: 2.6rem; height: 2.6rem; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--color-info) 55%, var(--color-border)); border-radius: 50%; background: var(--color-surface-raised); color: var(--color-info); font-size: 1rem; font-weight: 900; }
+.setup-guide-heading { display: flex; align-items: start; justify-content: space-between; gap: var(--space-4); }
+.setup-guide-heading h2 { margin-bottom: var(--space-2); }
+.setup-guide-heading p:last-child { max-width: 60rem; margin: 0; color: var(--color-muted); line-height: 1.5; }
+.setup-guide-heading button { flex: 0 0 auto; }
+.setup-guide-tasks { display: grid; gap: var(--space-2); margin: var(--space-4) 0 0; padding-left: 1.25rem; color: var(--color-text); line-height: 1.5; }
 @media (max-width: 560px) {
   .w2ui-popup .w2ui-form .w2ui-field > label { width: auto; min-width: 0; float: none; margin: var(--space-2) 0 0; padding: 0 var(--space-2); text-align: left; }
   .w2ui-popup .w2ui-form .w2ui-field > div { margin-left: 0; padding-inline: var(--space-2); }
   .listener-detail-row { grid-template-columns: 1fr auto; }
   .listener-detail-label { grid-column: 1 / -1; }
+  .setup-guide-step { grid-template-columns: 1fr; }
+  .setup-guide-heading { flex-direction: column; }
 }
 @media (max-width: 1100px) {
   .workflow-steps { grid-template-columns: 1fr; gap: var(--space-2); }
   .workflow-steps li:not(:last-child)::after { top: 2rem; bottom: calc(-1 * var(--space-2)); left: 1rem; width: 1px; height: auto; }
   .workflow-steps li > div { padding-bottom: var(--space-2); }
-  .configuration-layout { grid-template-columns: 1fr; }
-  .configuration-inspector { position: static; min-height: 0; }
 }
 @media (max-width: 720px) {
   .configuration-summary { grid-template-columns: 1fr; }
   .summary-card { min-height: 7rem; }
   .section-heading { flex-direction: column; gap: var(--space-2); }
+  .configuration-history-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .configuration-history-actions button { width: 100%; }
 }

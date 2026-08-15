@@ -78,6 +78,9 @@ func TestValidationHelpers(t *testing.T) {
 	if !validPath("/health-checks") || validPath("health") || validPath("/health\nunsafe") {
 		t.Fatal("path validation mismatch")
 	}
+	if !validOptionalPath("") || !validOptionalPath("/ready") || validOptionalPath("ready") {
+		t.Fatal("optional path validation mismatch")
+	}
 }
 
 func TestMaskPrefix(t *testing.T) {

@@ -1,0 +1,19 @@
+[Unit]
+Description=Shinmon multi-host node
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shinmon/current
+ExecStartPre=/usr/bin/docker compose --env-file node.env --profile @ROLE@ config --quiet
+ExecStart=/usr/bin/docker compose --env-file node.env --profile @ROLE@ up --no-build --remove-orphans
+ExecStop=/usr/bin/docker compose --env-file node.env --profile @ROLE@ down
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=45s
+
+[Install]
+WantedBy=multi-user.target
+
