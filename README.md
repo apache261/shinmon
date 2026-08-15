@@ -119,6 +119,48 @@ manage the dashboard separately:
 Replace `up` with `down` to stop a profile. Use `config` to validate it or
 `pull` to fetch the Nginx image.
 
+## Run across multiple hosts
+
+The multi-host setup supports one or two edge hosts, two to eight gateway
+hosts, and one or two management and dashboard hosts. Every gateway and
+management host must connect to the same PostgreSQL and Redis services.
+
+First build and push images that every host can pull:
+
+```sh
+SHINMON_REGISTRY=registry.example/shinmon \
+SHINMON_IMAGE_TAG=release-2026.08 \
+docker compose -f deploy/multihost/images.compose.yml build
+
+SHINMON_REGISTRY=registry.example/shinmon \
+SHINMON_IMAGE_TAG=release-2026.08 \
+docker compose -f deploy/multihost/images.compose.yml push
+```
+
+Create private deployment files from the examples, then update the host
+addresses, image registry, database URL, Redis URL, tokens, and key pepper:
+
+```sh
+cp deploy/multihost/inventory.example.env inventory.env
+cp deploy/multihost/common.example.env common.env
+chmod 600 common.env
+./scripts/validate-multihost.sh inventory.env
+./scripts/validate-multihost.sh inventory.env --reachability
+./scripts/render-multihost.sh inventory.env common.env build/multihost
+```
+
+The renderer creates one directory for each host under `build/multihost`. It
+does not connect to the hosts or deploy anything. Copy each matching directory
+to `/opt/shinmon/releases/<release>` on its host, point
+`/opt/shinmon/current` to that release, install the included
+`shinmon.service`, and enable the service.
+
+Multi-host mode uses HTTP by default. For HTTPS, set
+`SHINMON_TRANSPORT_MODE=https` and `SHINMON_TLS_SOURCE_DIR` in `inventory.env`.
+The TLS directory must contain `edge.pem`, `internal.crt`, `internal.key`,
+`internal-ca.pem`, `dashboard.crt`, and `dashboard.key`. The validator rejects
+missing, expired, or incorrectly named certificates.
+
 ## Default ports
 
 - Gateway internal HTTP: `4040`
