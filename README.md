@@ -195,7 +195,9 @@ security checks when you want to dig further.
 
 ## Why I built it
 
-Development of Shinmon began as a private project local git in December 2024.
+Development of Shinmon began as a private project in December 2024. The earlier
+local Git history was lost; the surviving record is documented in
+[Project history](HISTORY.md).
 
 I am a software developer who became annoyed by the number of APIs I had to
 track across different addresses, ports, credentials, permissions, health
